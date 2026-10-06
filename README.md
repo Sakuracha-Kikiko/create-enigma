@@ -254,3 +254,71 @@ create-enigma/
 
 编译目标是**打算支持的最低版本**：向上兼容、向下不保证。缓存的 NeoForge 21.1.250
 是现成的，升到 255 只会多一次依赖解析，没有兼容性收益。
+
+---
+
+## 9. 版本控制
+
+### 两个远程
+
+| 远程 | 地址 | 状态 |
+|---|---|---|
+| `origin` | `https://gitee.com/Sakuracha-Kikiko/create-enigma.git` | **可用**，日常推这个 |
+| `github` | `https://github.com/Sakuracha-Kikiko/create-enigma.git` | 已配置，但**本机网络推不上去**（见下） |
+
+`origin` 已建立跟踪关系，所以推送只要：
+
+```bash
+git push
+```
+
+### 关于 GitHub
+
+**这台机器在国内网络下连不上 GitHub**，不是配置问题：
+
+* `git ls-remote` 偶尔能过（约 14 秒），因为它只读一小段引用列表；
+* 但 `git push` 传数据时立刻 `Recv failure: Connection was reset`；
+* 凭据管理器的 OAuth 登录页本身都打不开（`ERR_CONNECTION_TIMED_OUT`），认证根本走不完。
+
+所以别把它当成"配置坏了"去排查。**开了代理之后**补推一次即可：
+
+```bash
+git push github main
+```
+
+第一次成功时凭据管理器会弹一次 GitHub 登录窗（上次没走完，凭据没存下来）。
+
+### 日常只需要记三条
+
+```bash
+git log --oneline     # 看历史，每次提交一行
+git show HEAD         # 看最近一次具体改了什么
+git restore .         # 后悔药：把工作区恢复到上次提交
+```
+
+提交由 AI 助手来做。想自己确认某个版本是否已备份，用
+`git status` —— 显示 "up to date with origin/main" 就是已推送。
+
+### 两个刻意的配置
+
+**`.gitattributes` 里 `* text=auto eol=lf`** —— 不用默认的 `* text=auto`。默认值会让 git
+在 Windows 上把文件检出成 CRLF，而编辑工具写回 LF，于是工作区里会冒出一堆
+"看起来是改动、其实是行尾"的假差异。锁死 LF 后行为完全确定。
+
+**`.nbt` 被标记为 binary** —— 结构模板是 gzip 压缩数据，只要有一个字节被行尾转换动过就
+彻底读不出来，而且**失败表现是"机器静静地永不成型"**，极难排查。每次改完模板都值得
+用 `StructureDump` 重新解析确认一遍。
+
+**`libs-archive/` 被忽略** —— 那是 `archiveJar` 任务存的每个版本的 jar。git 已经保留了
+每个版本的源码，随时能重新构建。如果你更希望"能直接翻出旧 jar 丢进游戏"，把这个目录
+从 `.gitignore` 里去掉即可，代价是二进制会永久留在历史里（每个约 35 KB）。
+
+### 提交署名
+
+仓库局部的占位值 `create-enigma dev <dev@localhost>`，只写进本地提交记录、不外发。
+想换成自己的：
+
+```bash
+git config user.name "你的名字"
+git config user.email "你的邮箱"
+```
