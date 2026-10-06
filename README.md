@@ -1,0 +1,256 @@
+# Create: Enigma
+
+把 **Mojang 2022 年 Java 版宣传片**里那台机器，注册成一个**能真正成型（form）的多方块结构**。
+
+这台机器就是 Create 在**创造马达**思索里复刻并取名为 **"Mojang's Enigma"** 的那座结构——
+Create 只提供了那个思索场景（`assets/create/ponder/creative_motor_mojang.nbt`），
+结构布局本身来自宣传片。本模组自己重新生成了一份清洗过的结构模板，不打包 Create 的思索文件。
+
+> **用途待定。** 当前交付的是完整的骨架：结构能放出来、能判定成型、能判定散架。
+> 成型之后"做什么"还没有实现——见文末「下一步」。
+
+---
+
+## 1. 快速上手
+
+```bash
+# 构建（Windows）
+gradlew.bat build          # 本项目未附 wrapper，见下方「构建」
+```
+
+产物：`build/libs/create_enigma-0.1.0.jar`（同时归档到 `libs-archive/`）
+
+装好之后：
+
+```
+/place template create_enigma:mojang_enigma
+```
+
+机器会整台出现在你面前，**核心方块会在约 5 tick 后自己亮起来**（成型）。
+右键核心可以随时查询当前状态；不完整时会告诉你**第一个不对的坐标和原因**。
+
+不加坐标时以你所在位置为基准；也可以显式给坐标，并支持旋转/镜像参数：
+
+```
+/place template create_enigma:mojang_enigma ~ ~ ~
+/place template create_enigma:mojang_enigma <x> <y> <z>
+```
+
+> ### ⚠️ 是 `/place template`，不是 `/place structure`
+>
+> 这两个是不同的子命令，很容易搞混：
+>
+> | 子命令 | 参数类型 | 接受什么 |
+> |---|---|---|
+> | `/place structure` | `Registries.STRUCTURE` | **worldgen 结构**，即 `data/<ns>/worldgen/structure/` 里注册的东西 |
+> | `/place template` | 普通 `ResourceLocation` | **结构模板**，即 `data/<ns>/structure/<name>.nbt` —— 本模组就是这个 |
+>
+> `/place structure` 的补全列表来自结构注册表，**永远不会**列出本模组的模板。
+>
+> 这个坑是真实踩过的：README 最初就写成了 `/place structure`，而放置机制本身是通过
+> `StructureTemplateManager` 验证的（那条路是对的），**唯独玩家真正输入的那个入口从没被执行过**。
+> 现在 `theDocumentedCommandPlacesTheMachine` 这个测试会通过真实命令分发器跑这条命令，
+> 并断言机器确实成型，专门堵这个洞。
+
+### 构建说明
+
+本项目**没有附带 gradle wrapper**——wrapper 需要联网下载 gradle 发行包，而本机到
+Maven 的 IPv6 路由是黑洞的。构建请使用工作区里已备好的工具链：
+
+```powershell
+$tc = '..\..\Create Test1\.toolchain'      # 项目位于 DSH\create_test_2\create-enigma，故上溯两层
+$env:JAVA_HOME      = "$tc\jdk21"
+$env:GRADLE_USER_HOME = "$tc\gh"          # 共享热缓存，NeoForm 反编译结果可复用
+$env:JAVA_TOOL_OPTIONS = '-Djava.net.preferIPv4Stack=true'
+& "$tc\gradle\gradle-8.14.2\bin\gradle.bat" --project-dir . --no-daemon --offline build
+```
+
+首次（在新机器上）构建要反编译 Minecraft 并下载约 786 MiB 资源，十几分钟；
+本机缓存已热，增量构建约 14 秒。
+
+---
+
+## 2. 结构模板是怎么来的
+
+原始数据是 Create 的 Ponder 捕获文件。它是**旧版**的（DataVersion 2975），
+但格式与 Create 自己在 1.21.1 用的结构模板**逐字段一致**，所以可以纯转换、不需要重排。
+
+`tools/PrepareEnigmaStructure.java` 做四件事（跑一次即可，产物已提交）：
+
+| 变更 | 原因 |
+|---|---|
+| 丢掉 y=0 的 225 格 | 那是 Ponder 的棋盘格底板，思索场景自己都没揭示过它，不属于机器 |
+| 丢掉 `(8,3,9)` | 一个从未被任何 `showSection` 揭示的云杉台阶，不属于展示出来的结构 |
+| y 整体下移 1 格 | 让机器贴地 |
+| `(7,3,8)` 的箱子 → `create_enigma:enigma_core` | 见下 |
+| DataVersion 2975 → 3955 | 1.21.1；不改会被 datafixer 处理一遍 |
+| 清洗方块实体 NBT | 只留 7 台创造马达的 `id`/`Speed`/`ScrollValue`。其余字段（`Network`、`Source`、`Controller`、`Length`…）是 Ponder 虚拟世界里的跨方块引用，放置时会由 Create 重算，留着反而是脏数据 |
+
+```powershell
+& "$tc\jdk21\bin\java.exe" tools\PrepareEnigmaStructure.java <ponder.nbt> src\main\resources\data\create_enigma\structure\mojang_enigma.nbt
+```
+
+结果：**82 个方块**，15×4×15。
+
+### 为什么核心放在原来箱子的位置
+
+那个格子是**机器真正的收料终点**：y=2 的安山岩漏斗朝上正对它，旁边 y=3 的原版漏斗朝西也是往它里送。
+把核心放在这里，意味着玩家交互的那个方块就是机器投递的那个方块——
+以后要给它挂物品栏或用途，不需要挪动任何东西。
+
+### 为什么保留创造马达
+
+结构里有 **7 台 `create:creative_motor`**，分布在 5 条动力网络上。创造马达生存模式拿不到，
+所以这台机器本质上是**创造模式展示品**。这是刻意的选择：保持结构忠实于原物，
+等用途定了再决定是否替换动力源。**如果要改成可合成动力源，会改变方块清单。**
+
+---
+
+## 3. 设计决策
+
+### `assembled` 是方块状态，不是方块实体字段
+
+原版会免费把方块状态同步给附近所有客户端，所以核心成型时改变外观**不需要本模组拥有任何自定义包**。
+
+### 成型判定按类型白名单比属性，而不是逐属性全比
+
+模板里很多属性**不是建造者的选择**，而是游戏推导出来的、或者会自己变的：
+
+* Create 从周围的传动轮算出皮带的 `part`/`slope`/`facing`，从相邻窗格算出连接布尔值；
+* `waterlogged` 取决于下没下雨，`powered`/`enabled` 取决于红石信号，`snowy` 取决于生物群系。
+
+**全比会让机器因为玩家看不见也控制不了的原因拒绝成型。**
+所以 `BlockStateMatcher` 比较方块本身 + 除忽略集以外的全部属性，忽略集刻意保持很短，
+每一条都是"正确的建造也可能对不上"的地方。
+
+### `UNKNOWN` 和 `UNFORMED` 是两件事
+
+15×15 的占地最多横跨 4 个区块。**读取未加载区块里的方块会强制加载那个区块**，
+所以判定从不去碰未加载的区块：读不到的位置让结论变成 `UNKNOWN` 而不是 `UNFORMED`，
+调用方在 `UNKNOWN` 时**必须保持原状**。否则玩家走近机器就会把它弄散架，再搭回去全凭运气。
+
+### 周期性重扫，而不是监听破坏事件
+
+机器有 82 个方块，**没有一个属于本模组**——没地方记"我属于某个多方块"，
+也没有哪个事件能可靠覆盖方块离开的所有方式：挖掘、爆炸、活塞、
+以及 Create 的 contraption 把它整个搬走。定时重读一次形状用同一段代码覆盖全部这些情况，
+而 82 次方块查询每秒一次，对一座展示品来说不值得优化掉。
+
+### 用自己的类路径读模板，不走数据包
+
+这样判定不受资源重载影响，也不会被覆盖了模板的数据包搞出不一致。
+代价是不支持数据包覆盖模板——如果以后要做成可配置的，改 `EnigmaStructure` 一处即可。
+
+### 不用 Registrate 的 datagen
+
+和隔壁 `chain-reaction` 一样：blockstate / block model / item model 全部**手写**放在
+`src/main/resources`。产出的 jar 里 `build/generated/resources` 是空的，
+不存在生成文件与手写文件冲突的可能。物品模型是 `models/item/enigma_core.json`（3 行）。
+
+---
+
+## 4. 测试
+
+```powershell
+& "$tc\gradle\gradle-8.14.2\bin\gradle.bat" --project-dir . --no-daemon --offline runGameTestServer
+```
+
+`EnigmaGameTests` 有 4 个测试，在真实服务器世界里跑：
+
+| 测试 | 断言 |
+|---|---|
+| `theDocumentedCommandPlacesTheMachine` | 本 README 里那条命令的 id 必须出现在 `/place template` 的补全列表里；然后用**真实命令分发器**执行那条命令，机器必须成型 |
+| `completeMachineAssemblesItsCore` | 用原版结构放置把整台机器搭出来，核心必须在 40 tick 内变成 `assembled=true` |
+| `removingOneBlockDisassemblesIt` | 先确认成型，再挖掉小屋地面的一块台阶，核心必须在 40 tick 内变回 `assembled=false` |
+| `matcherIgnoresDerivedPropertiesButNotRealChanges` | 直接检验**比较策略本身**：`waterlogged`/`snowy`/窗格连接/核心自身的 `assembled` 必须被忽略；台阶 `type`、皮带 `slope`/`part`/`casing`、以及换掉方块本身必须被判为不同 |
+
+**当前状态：4/4 通过。**
+
+第 1 个测试是**因为踩了坑才补上的**：README 最初把命令写成了 `/place structure`，
+而那个子命令只接受 worldgen 结构，导致结构根本放不出来。放置机制本身当时是验证过的
+（走的 `StructureTemplateManager`，那条路没问题），**唯独玩家真正输入的那个入口从没被执行过**。
+这个测试通过真实分发器跑完整命令行，并断言机器成型——如果命令写错、id 写错或模板没被收录，
+它都会失败。
+
+第 4 个测试覆盖的是**整个模组赖以成立的那一个决策**，也是最容易搞错、
+且错了只在游戏里才暴露的那个——比较太严，正确的建造会因为玩家看不见的原因被拒绝；
+太松，随便一堆方块都算数。它是纯逻辑断言，不需要世界、也不会不稳定。
+
+其中最容易漏掉的一条是**核心自身的 `assembled` 必须被忽略**：模板里存的是 `assembled=false`，
+而成型后世界里是 `assembled=true`。如果这个属性参与比较，第一次判定之后的每一次判定
+都会把机器重新拆掉——这是那种"能跑起来但永远不稳定"的 bug。
+
+其余测试走的是**原版自己的结构放置**（`StructureTemplate.placeInWorld`），而不是从模板
+逐个 `setBlock`——只有这条路径会创建方块实体、让 Create 连好皮带和动力网络，
+也就是唯一能让"判定"受到公平检验的路径。
+
+### 没有自动化覆盖的部分
+
+* **未加载区块 → `UNKNOWN`** 的分支没有测试（需要构造跨区块且部分卸载的场景）。
+* **客户端外观**（模型、贴图、亮度）GameTest 跑在服务端，验证不到，只能进游戏看。
+* 7 台创造马达的转速是否正确恢复（16/20/20/16/16/16/−12）没有断言。
+
+---
+
+## 5. 已知限制
+
+1. **生存模式不可用**——依赖 7 台创造马达。
+2. **固定朝向**——不支持旋转/镜像。模板只能按原方向摆放。做旋转需要给判定加上
+   `Rotation`/`Mirror` 变换，并让反馈能说明"你转错了方向"。
+3. **模板不可被数据包覆盖**（见上）。
+4. **不阻止破坏**——玩家可以拆掉机器，只是它会散架。没有任何"多方块保护"。
+5. 结构模板里的 82 个方块**没有任何一个是本模组的**，除了核心。
+
+---
+
+## 6. 下一步（用途待定）
+
+骨架已经把"结构被认出来了"这件事做成事实，剩下的是给它一个用途。几个自然的挂载点：
+
+* `EnigmaCoreBlockEntity` —— 成型/散架时已经有 `check()` 返回的 `Result`，
+  在这里加"成型时发生什么"最直接（发红石信号、给玩家成就、启动某种处理）。
+* `EnigmaCoreBlock` —— 右击交互已经接好，可以换成打开 GUI。
+* 核心换成 `SmartBlockEntity` —— 如果要挂 Create 的 `ValueBox`/护目镜信息/behaviour，
+  需要换成 Create 的方块实体基类（当前用的是原版 `BlockEntity`，刻意少依赖）。
+
+---
+
+## 7. 目录结构
+
+```
+create-enigma/
+├─ build.gradle / settings.gradle / gradle.properties
+├─ tools/
+│  ├─ PrepareEnigmaStructure.java      Ponder 捕获 -> 结构模板（跑一次）
+│  └─ MakeEmptyGameTestTemplate.java   GameTest 空场地（跑一次）
+└─ src/main/
+   ├─ java/com/createenigma/
+   │  ├─ CreateEnigma.java                       入口 + 自建 Registrate
+   │  ├─ content/EnigmaCoreBlock.java            核心方块（assembled 状态、交互）
+   │  ├─ content/EnigmaCoreBlockEntity.java      周期判定 + 生命周期 + 状态反馈
+   │  ├─ structure/EnigmaStructure.java          模板加载（类路径 NBT）
+   │  ├─ structure/BlockStateMatcher.java        属性白名单比较
+   │  ├─ structure/EnigmaValidator.java          成型判定 + 放置辅助
+   │  ├─ registry/                               CEBlocks / CEBlockEntities / CECreativeTabs
+   │  └─ gametest/EnigmaGameTests.java           2 个 GameTest
+   ├─ resources/
+   │  ├─ assets/create_enigma/                   blockstate / 模型 / 中英文
+   │  └─ data/create_enigma/
+   │     ├─ structure/mojang_enigma.nbt          82 方块，机器本体
+   │     ├─ structure/enigmagametests.empty.nbt  GameTest 场地
+   │     └─ loot_table/blocks/enigma_core.json
+   └─ templates/META-INF/neoforge.mods.toml
+```
+
+---
+
+## 8. 版本
+
+| 依赖 | 版本 |
+|---|---|
+| Minecraft | 1.21.1 |
+| NeoForge | **编译目标 21.1.250**（可运行于 21.1.250+，含 21.1.255） |
+| Create | 6.0.10-281 |
+
+编译目标是**打算支持的最低版本**：向上兼容、向下不保证。缓存的 NeoForge 21.1.250
+是现成的，升到 255 只会多一次依赖解析，没有兼容性收益。

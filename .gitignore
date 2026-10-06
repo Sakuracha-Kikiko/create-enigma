@@ -1,0 +1,27 @@
+# Gradle build output. Regenerated; never source.
+build/
+.gradle/
+
+# ModDevGradle dev runtime: worlds, logs, downloaded assets.
+# Every run recreates it, and it is 16+ MB.
+run/
+
+# Archived jars produced by the archiveJar task.
+# Deliberately outside build/ so "gradle clean" cannot destroy them (an earlier
+# setup lost every version that way). Not tracked here because git already keeps
+# the source each jar was built from - see the README for how to track them too.
+libs-archive/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+
+# OS
+Thumbs.db
+Desktop.ini

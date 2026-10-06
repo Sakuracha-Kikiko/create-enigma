@@ -1,0 +1,14 @@
+# Store and check out LF everywhere, on every platform.
+#
+# Deliberately not "* text=auto": that lets git guess per platform, so a Windows
+# checkout turns every file into CRLF while the agent edits them back to LF, and the
+# working tree ends up full of changes that are not changes. Java, Gradle and JSON do
+# not care which one is used, so pin it and remove the ambiguity.
+* text=auto eol=lf
+
+# Structure templates are gzipped NBT. They must never go through any line-ending
+# conversion - a single flipped byte makes the template unreadable, and the failure
+# would surface as "the machine silently never forms".
+*.nbt binary
+*.jar binary
+*.png binary

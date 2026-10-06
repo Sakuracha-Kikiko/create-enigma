@@ -1,0 +1,130 @@
+plugins {
+    id 'idea'
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.91'
+}
+
+version = mod_version
+group = mod_group_id
+
+base {
+    archivesName = mod_id
+}
+
+// Mojang ships Java 21 to end users starting in 1.20.5, so mods should target Java 21.
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+repositories {
+    mavenLocal()
+    // Create / Flywheel / Ponder
+    maven { url = 'https://maven.createmod.net' }
+    // Registrate
+    maven { url = 'https://maven.ithundxr.dev/snapshots' }
+    // Mixin
+    maven { url = 'https://repo.spongepowered.org/repository/maven-public' }
+    mavenCentral()
+}
+
+neoForge {
+    version = project.neo_version
+
+    parchment {
+        mappingsVersion = project.parchment_mappings_version
+        minecraftVersion = project.parchment_minecraft_version
+    }
+
+    runs {
+        client {
+            client()
+        }
+        server {
+            server()
+            programArgument '--nogui'
+        }
+        gameTestServer {
+            type = "gameTestServer"
+            // Runs every @GameTest in src/main/java/com/createenigma/gametest and exits.
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+sourceSets.main.resources { srcDir 'src/generated/resources' }
+
+dependencies {
+    // Create is required: the Enigma structure is built out of Create kinetic components
+    // (creative motors, cogwheels, shafts, gantry shafts, belts, funnels), so recognising it
+    // means comparing Create block states.
+    //
+    // Create's published POM drags in its whole optional compatibility set (JEI, FTB, Curios,
+    // CC:Tweaked, Architectury, JourneyMap, Farmer's Delight, ...), which is not present in the
+    // target modpack and is not needed to run Create there. They are excluded so that the
+    // runtime classpath matches the modpack instead of an "everything installed" dev setup.
+    implementation("com.simibubi.create:create-${minecraft_version}:${create_version}") {
+        exclude group: 'mezz.jei'
+        exclude group: 'maven.modrinth'
+        exclude group: 'curse.maven'
+        exclude group: 'dev.ftb.mods'
+        exclude group: 'info.journeymap'
+        exclude group: 'top.theillusivec4.curios'
+        exclude group: 'cc.tweaked'
+        exclude group: 'dev.architectury'
+    }
+
+    // Create bundles these three as jar-in-jar, so they do NOT arrive transitively and have to
+    // be declared explicitly for compilation. Keep the versions aligned with Create's own
+    // gradle.properties for the matching Create build.
+    implementation "com.tterrag.registrate:Registrate:${registrate_version}"
+    implementation("net.createmod.ponder:ponder-neoforge:${ponder_version}+mc${minecraft_version}")
+    implementation "dev.engine-room.flywheel:flywheel-neoforge-${minecraft_version}:${flywheel_version}"
+}
+
+var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
+    var replaceProperties = [
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            neo_version            : neo_version,
+            neo_version_range      : neo_version_range,
+            loader_version_range   : loader_version_range,
+            mod_id                 : mod_id,
+            mod_name               : mod_name,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+            mod_authors            : mod_authors,
+            mod_description        : mod_description
+    ]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from "src/main/templates"
+    into "build/generated/sources/modMetadata"
+}
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+// Keeps one jar per version, outside build/ so that "gradle clean" can never destroy the archive.
+tasks.register('archiveJar', Copy) {
+    dependsOn tasks.named('jar')
+    from(tasks.named('jar').flatMap { it.archiveFile })
+    into(layout.projectDirectory.dir('libs-archive'))
+}
+
+tasks.named('build') {
+    finalizedBy 'archiveJar'
+}
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}

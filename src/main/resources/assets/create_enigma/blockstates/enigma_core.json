@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "assembled=false": {
+      "model": "create_enigma:block/enigma_core"
+    },
+    "assembled=true": {
+      "model": "create_enigma:block/enigma_core_assembled"
+    }
+  }
+}
