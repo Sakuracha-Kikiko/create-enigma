@@ -259,6 +259,39 @@ create-enigma/
 
 ## 9. 版本控制
 
+### ⚠️ 所有 git 命令都必须在项目目录下运行
+
+git 不认识"项目名"，它只认 `.git` 这个文件夹。在哪个目录敲命令，它就从那里**向上逐级查找**
+`.git`：找到就算在仓库里，一路查到磁盘根目录都没有，就报：
+
+```
+fatal: not a git repository (or any of the parent directories): .git
+```
+
+所以下面这些目录**可以**（子目录也行）：
+
+```
+DSH\create_test_2\create-enigma          ✅
+DSH\create_test_2\create-enigma\src      ✅
+```
+
+而这些**不行**——它们不是仓库，只是仓库上层的目录：
+
+```
+DSH\create_test_2                        ❌
+DSH                                      ❌
+C:\Users\赵胤棋                           ❌   ← 新开的终端默认就在这里
+```
+
+先 `cd` 进去再敲命令：
+
+```bash
+cd "C:\Users\赵胤棋\Documents\DSH\create_test_2\create-enigma"
+git log --oneline
+```
+
+不确定自己在哪，先敲 `git status`：它要么报告状态，要么就是上面那句报错。
+
 ### 两个远程
 
 | 远程 | 地址 | 状态 |
