@@ -6,12 +6,12 @@
     }
   },
   "display": {
-    "announce_to_chat": false,
+    "announce_to_chat": true,
     "description": {
       "text": "jang工mo械由此开始",
       "color": "#DBA213"
     },
-    "frame": "goal",
+    "frame": "task",
     "hidden": true,
     "icon": {
       "count": 1,

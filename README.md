@@ -474,8 +474,27 @@ jar 内只有 `com/createenigma`、`assets/create_enigma`、`data/create_enigma`
 | 标签页 | 「欢迎来到机械动力…？」（root，`create_enigma:root`） |
 | 进度 | 「Enigma」（`create_enigma:enigma`），**刻意不做本地化** |
 | 描述 | 「jang工mo械由此开始」 |
+| 种类 | `task`（普通进度）。想改成 `goal`/`challenge` 就改 `enigma.json` 里的 `frame` |
 | 图标 | 谜之核心（占位，随时可换） |
 | 背景 | `minecraft:textures/gui/advancements/backgrounds/end.png` |
+
+### 聊天栏通知有两个条件
+
+原版的判定是**两个条件的与**（`PlayerAdvancements:180`）：
+
+```java
+if (display.shouldAnnounceChat() && level.getGameRules().getBoolean(GameRules.RULE_ANNOUNCE_ADVANCEMENTS)) {
+    playerList.broadcastSystemMessage(...);
+}
+```
+
+1. **`announce_to_chat`** —— 进度自己的设置。`enigma.json` 里是 `true`；
+   而 **root 刻意是 `false` 且 `show_toast` 也是 `false`**，因为它是和进度同时授予的，
+   否则玩家会看到两条提示（一条来自 root、一条来自进度），而 root 本身没有意义。
+2. **世界规则 `announceAdvancements`** —— 默认开启。**如果玩家关过它
+   （`/gamerule announceAdvancements false`），无论 `announce_to_chat` 怎么写都不会有聊天消息。**
+
+所以"拿到了进度但聊天栏没消息"，先查这两处，而不是改代码。
 
 值得注意的是：**在此之前，玩家看不到任何东西。** 服务端只把"对玩家可见"的进度发给客户端
 （`PlayerAdvancements` 里有一套可见性判定），而未解锁、又没有已解锁子节点的 root
