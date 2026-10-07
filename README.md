@@ -100,7 +100,7 @@ $env:JAVA_TOOL_OPTIONS = '-Djava.net.preferIPv4Stack=true'
 ### 与原物的刻意差异
 
 除了"去掉底板、下沉一格、箱子换成核心"这类**机械性**变更，模板里还有**一处有意的行为改动**。
-它记录在 `PrepareEnigmaStructure.PATCHES` 里——那是唯一一处本模组**不再忠实复制**原物的地方，
+它记录在 **`tools/patches.txt`** 里——那是唯一一处本模组**不再忠实复制**原物的地方，
 所以每加一条都必须写清理由。
 
 | 位置 | 改动 | 理由 |
@@ -109,15 +109,43 @@ $env:JAVA_TOOL_OPTIONS = '-Djava.net.preferIPv4Stack=true'
 
 结果：**两个漏斗都往核心送东西**。
 
-```java
-record Patch(int x, int y, int z, String property, String value) {}
+#### 怎么自己加一条补丁
 
-static final List<Patch> PATCHES = List.of(
-        new Patch(7, 3, 9, "facing", "north"));
+**改方块不需要碰任何 Java 文件**——编辑 `tools/patches.txt` 就行，用记事本即可：
+
+```
+# 一行一条，# 开头是注释
+7,3,9   facing=north
 ```
 
-工具会打印每条补丁的实际效果，并且**某条补丁没匹配到方块就直接报错退出**——
-避免坐标写错后静默生成一份没打上补丁的模板。
+⚠️ **坐标用原始 Ponder 坐标，不是最终结构里的坐标：**
+
+* y 从 **1** 开始（y=0 是棋盘底板，会被丢掉）
+* 最终结构里所有坐标的 y 都**减了 1**
+
+所以原坐标 `(7,3,9)` 在最终结构里是 `(7,2,9)`。
+
+改完在项目根目录跑一次：
+
+```powershell
+$tc = '..\..\Create Test1\.toolchain'
+& "$tc\jdk21\bin\java.exe" tools\PrepareEnigmaStructure.java `
+    "$tc\ref\create-src\Create-mc1.21.1-6.0.10\src\main\resources\assets\create\ponder\creative_motor_mojang.nbt" `
+    src\main\resources\data\create_enigma\structure\mojang_enigma.nbt
+```
+
+**三条安全网**（都是"写错了会报错"，而不是静默生效）：
+
+| 写错什么 | 结果 |
+|---|---|
+| 坐标处没有方块 | `ERROR: patches.txt:1: no block at (0,3,0), so 'facing=north' was NOT applied.` 并提示坐标系 |
+| 属性名不存在 | `ERROR: minecraft:hopper has no property 'facingg'; it has [facing, enabled]` —— 直接列出实际属性 |
+| 格式写错 | `ERROR: patches.txt:3: expected '<x>,<y>,<z> <property>=<value>', got: ...` —— 指出行号 |
+
+三条都以非零码退出。这样设计是因为：**补丁没生效本身不会产生任何错误**，
+模板只会少一处改动，而这种问题通常要等到进游戏仔细看才发现。
+
+补丁文件不存在时也能跑，此时输出的是**未经改动的原物**。
 
 ### 为什么核心放在原来箱子的位置
 

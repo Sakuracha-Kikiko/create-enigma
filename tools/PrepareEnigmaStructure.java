@@ -1,4 +1,6 @@
 import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.*;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -48,23 +50,16 @@ public class PrepareEnigmaStructure {
      */
 
     /** One block state property to rewrite, in ORIGINAL ponder coordinates. */
-    record Patch(int x, int y, int z, String property, String value) {}
+    record Patch(int x, int y, int z, String property, String value, int line) {}
 
     /**
-     * Deliberate departures from the original build, applied after everything else.
+     * Deliberate departures from the original build are read from {@code tools/patches.txt}, so
+     * that changing one needs a text editor and no Java at all.
      *
-     * <p>Keep this list short and keep every entry justified - it is the one place where the
-     * shipped structure stops being a faithful copy of Mojang's machine.
-     *
-     * <p><b>(7,3,9) hopper: {@code facing} east to north.</b> In the original the hopper faces
-     * east, into the spruce slab at (8,3,9). A hopper only ever pushes into a container, so that
-     * one could never have worked - it is a dead end, and one of the clearer signs that the
-     * machine was assembled by people who were not Create players. Facing north points it at
-     * (7,3,8), the cell this mod turns into the Enigma Core, which is what the machine's own
-     * receiving end is for. The other hopper, (8,3,8) facing west, already points there.
+     * <p>Every entry there is the one place the shipped structure stops being a faithful copy of
+     * Mojang's machine, so each one carries its own justification as a comment in that file.
      */
-    static final List<Patch> PATCHES = List.of(
-            new Patch(7, 3, 9, "facing", "north"));
+    static final String DEFAULT_PATCH_FILE = "tools/patches.txt";
 
     /** DataVersion of Minecraft 1.21.1. */
     static final int DATA_VERSION = 3955;
@@ -242,6 +237,68 @@ public class PrepareEnigmaStructure {
     }
 
     /**
+     * Reads the patch list.
+     *
+     * <pre>
+     *   # anything after a hash is ignored
+     *   7,3,9   facing=north
+     * </pre>
+     *
+     * <p>Every error names the file and the line number, because this file is meant to be edited by
+     * hand - a silently ignored typo here would ship a structure that differs from what its author
+     * thought they wrote, and nothing would report it.
+     */
+    static List<Patch> readPatches(File file) throws IOException {
+        if (!file.isFile()) {
+            return List.of();
+        }
+
+        List<Patch> patches = new ArrayList<>();
+        List<String> lines = Files.readAllLines(file.toPath(), StandardCharsets.UTF_8);
+
+        for (int i = 0; i < lines.size(); i++) {
+            int lineNo = i + 1;
+            String line = lines.get(i).trim();
+            if (line.isEmpty() || line.startsWith("#")) {
+                continue;
+            }
+
+            String where = file.getName() + ":" + lineNo;
+
+            String[] parts = line.split("\\s+");
+            if (parts.length != 2) {
+                throw new IllegalArgumentException(where
+                        + ": expected '<x>,<y>,<z> <property>=<value>', got: " + line);
+            }
+
+            String[] coords = parts[0].split(",");
+            if (coords.length != 3) {
+                throw new IllegalArgumentException(where + ": expected three coordinates x,y,z, got: " + parts[0]);
+            }
+
+            int eq = parts[1].indexOf('=');
+            if (eq <= 0 || eq == parts[1].length() - 1) {
+                throw new IllegalArgumentException(where + ": expected property=value, got: " + parts[1]);
+            }
+
+            int x, y, z;
+            try {
+                x = Integer.parseInt(coords[0].trim());
+                y = Integer.parseInt(coords[1].trim());
+                z = Integer.parseInt(coords[2].trim());
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException(where + ": coordinates must be whole numbers, got: " + parts[0]);
+            }
+
+            patches.add(new Patch(x, y, z,
+                    parts[1].substring(0, eq).trim(),
+                    parts[1].substring(eq + 1).trim(),
+                    lineNo));
+        }
+        return patches;
+    }
+
+    /**
      * Keeps a creative motor's speed settings and nothing else.
      *
      * <p>Everything else either is recomputed when the structure is placed (belt chain links,
@@ -275,12 +332,30 @@ public class PrepareEnigmaStructure {
 
     @SuppressWarnings("unchecked")
     public static void main(String[] args) throws Exception {
+        try {
+            run(args);
+        } catch (IllegalArgumentException e) {
+            // Every IllegalArgumentException this tool raises is "the patch file is wrong", and
+            // each one already carries file:line plus what was expected. A stack trace would only
+            // bury the single line the author needs to read.
+            System.err.println();
+            System.err.println("ERROR: " + e.getMessage());
+            System.exit(1);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    static void run(String[] args) throws Exception {
         if (args.length < 2) {
-            System.err.println("usage: PrepareEnigmaStructure <ponder.nbt> <out.nbt>");
+            System.err.println("usage: PrepareEnigmaStructure <ponder.nbt> <out.nbt> [patches.txt]");
+            System.err.println("       patches.txt defaults to " + DEFAULT_PATCH_FILE
+                    + ", relative to the working directory (run this from the project root)");
             System.exit(2);
         }
         File in = new File(args[0]);
         File out = new File(args[1]);
+        File patchFile = new File(args.length > 2 ? args[2] : DEFAULT_PATCH_FILE);
+        List<Patch> patches = readPatches(patchFile);
 
         Map<String, Object> root = readRoot(in);
         int[] size = asIntTriple(root.get("size"));
@@ -290,6 +365,9 @@ public class PrepareEnigmaStructure {
         System.out.println("in : " + in.getName() + "  size=" + Arrays.toString(size)
                 + "  palette=" + palette.size() + "  blocks=" + blocks.size()
                 + "  DataVersion=" + root.get("DataVersion"));
+        System.out.println("patch file: " + (patchFile.isFile()
+                ? patchFile.getPath() + "  (" + patches.size() + " patch(es))"
+                : patchFile.getPath() + "  (not found - shipping the original build unchanged)"));
 
         List<Map<String, Object>> newPalette = new ArrayList<>();
         Map<String, Integer> index = new HashMap<>();
@@ -297,6 +375,7 @@ public class PrepareEnigmaStructure {
 
         int droppedBase = 0, replaced = 0, motorsKept = 0;
         List<String> patched = new ArrayList<>();
+        boolean[] patchMatched = new boolean[patches.size()];
 
         for (Map<String, Object> block : blocks) {
             int[] pos = asIntTriple(block.get("pos"));
@@ -312,14 +391,18 @@ public class PrepareEnigmaStructure {
                 replaced++;
             } else {
                 state = palette.get(((Number) block.get("state")).intValue());
-                for (Patch patch : PATCHES) {
-                    if (patch.x() == x && patch.y() == y && patch.z() == z) {
-                        String before = String.valueOf(((Map<?, ?>) state.get("Properties"))
-                                .get(patch.property()));
-                        state = withProperty(state, patch.property(), patch.value());
-                        patched.add("(" + x + "," + y + "," + z + ") " + blockNameOf(state)
-                                + " " + patch.property() + " " + before + " -> " + patch.value());
+                for (int pi = 0; pi < patches.size(); pi++) {
+                    Patch patch = patches.get(pi);
+                    if (patch.x() != x || patch.y() != y || patch.z() != z) {
+                        continue;
                     }
+                    String before = String.valueOf(((Map<?, ?>) state.get("Properties"))
+                            .get(patch.property()));
+                    state = withProperty(state, patch.property(), patch.value());
+                    patchMatched[pi] = true;
+                    patched.add(patchFile.getName() + ":" + patch.line()
+                            + "  (" + x + "," + y + "," + z + ") " + blockNameOf(state)
+                            + " " + patch.property() + " " + before + " -> " + patch.value());
                 }
                 be = sanitiseBlockEntity((Map<String, Object>) block.get("nbt"), state);
                 if (be != null) motorsKept++;
@@ -344,12 +427,23 @@ public class PrepareEnigmaStructure {
         System.out.println("  size        = " + Arrays.toString(new int[]{size[0], size[1] - 1, size[2]}));
         System.out.println("  dropped     = " + droppedBase + " baseplate (y=0)");
         System.out.println("  replaced    = " + replaced + " block -> " + CORE_BLOCK);
-        System.out.println("  patched     = " + patched.size() + " of " + PATCHES.size() + " requested");
+        System.out.println("  patched     = " + patched.size() + " of " + patches.size() + " requested");
         for (String line : patched) System.out.println("      " + line);
-        if (patched.size() != PATCHES.size()) {
-            throw new IllegalStateException("a patch matched no block; check its coordinates");
-        }
         System.out.println("  motor BEs   = " + motorsKept + " kept (id/Speed/ScrollValue only)");
         System.out.println("  new palette = " + newPalette.size() + "   new blocks = " + newBlocks.size());
+
+        // Fail loudly rather than shipping a structure that silently is not what the patch file
+        // says. A wrong coordinate in patches.txt produces no error on its own - the file would
+        // just be missing one edit, and only careful play would ever reveal it.
+        for (int pi = 0; pi < patches.size(); pi++) {
+            if (!patchMatched[pi]) {
+                Patch patch = patches.get(pi);
+                throw new IllegalArgumentException(patchFile.getName() + ":" + patch.line()
+                        + ": no block at (" + patch.x() + "," + patch.y() + "," + patch.z()
+                        + "), so '" + patch.property() + "=" + patch.value() + "' was NOT applied. "
+                        + "Coordinates are in the ORIGINAL ponder space (y=1..4, before the shift); "
+                        + "the same cell is y-1 in the shipped structure.");
+            }
+        }
     }
 }
