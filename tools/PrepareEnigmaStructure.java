@@ -47,6 +47,25 @@ public class PrepareEnigmaStructure {
      * included. Dropping it left a one-block hole in that floor for no reason at all.
      */
 
+    /** One block state property to rewrite, in ORIGINAL ponder coordinates. */
+    record Patch(int x, int y, int z, String property, String value) {}
+
+    /**
+     * Deliberate departures from the original build, applied after everything else.
+     *
+     * <p>Keep this list short and keep every entry justified - it is the one place where the
+     * shipped structure stops being a faithful copy of Mojang's machine.
+     *
+     * <p><b>(7,3,9) hopper: {@code facing} east to north.</b> In the original the hopper faces
+     * east, into the spruce slab at (8,3,9). A hopper only ever pushes into a container, so that
+     * one could never have worked - it is a dead end, and one of the clearer signs that the
+     * machine was assembled by people who were not Create players. Facing north points it at
+     * (7,3,8), the cell this mod turns into the Enigma Core, which is what the machine's own
+     * receiving end is for. The other hopper, (8,3,8) facing west, already points there.
+     */
+    static final List<Patch> PATCHES = List.of(
+            new Patch(7, 3, 9, "facing", "north"));
+
     /** DataVersion of Minecraft 1.21.1. */
     static final int DATA_VERSION = 3955;
 
@@ -198,6 +217,31 @@ public class PrepareEnigmaStructure {
     }
 
     /**
+     * Rewrites one property of a palette entry, leaving every other property alone.
+     *
+     * <p>Copies rather than mutates, so the original palette entry - which may be shared with other
+     * positions - is untouched.
+     */
+    @SuppressWarnings("unchecked")
+    static Map<String, Object> withProperty(Map<String, Object> state, String property, String value) {
+        Map<String, Object> copy = new LinkedHashMap<>();
+        copy.put("Name", state.get("Name"));
+
+        Map<String, Object> props = new LinkedHashMap<>();
+        Object existing = state.get("Properties");
+        if (existing instanceof Map<?, ?> map) {
+            props.putAll((Map<String, Object>) map);
+        }
+        if (!props.containsKey(property)) {
+            throw new IllegalArgumentException(
+                    blockNameOf(state) + " has no property '" + property + "'; it has " + props.keySet());
+        }
+        props.put(property, value);
+        copy.put("Properties", props);
+        return copy;
+    }
+
+    /**
      * Keeps a creative motor's speed settings and nothing else.
      *
      * <p>Everything else either is recomputed when the structure is placed (belt chain links,
@@ -252,6 +296,7 @@ public class PrepareEnigmaStructure {
         List<Map<String, Object>> newBlocks = new ArrayList<>();
 
         int droppedBase = 0, replaced = 0, motorsKept = 0;
+        List<String> patched = new ArrayList<>();
 
         for (Map<String, Object> block : blocks) {
             int[] pos = asIntTriple(block.get("pos"));
@@ -267,6 +312,15 @@ public class PrepareEnigmaStructure {
                 replaced++;
             } else {
                 state = palette.get(((Number) block.get("state")).intValue());
+                for (Patch patch : PATCHES) {
+                    if (patch.x() == x && patch.y() == y && patch.z() == z) {
+                        String before = String.valueOf(((Map<?, ?>) state.get("Properties"))
+                                .get(patch.property()));
+                        state = withProperty(state, patch.property(), patch.value());
+                        patched.add("(" + x + "," + y + "," + z + ") " + blockNameOf(state)
+                                + " " + patch.property() + " " + before + " -> " + patch.value());
+                    }
+                }
                 be = sanitiseBlockEntity((Map<String, Object>) block.get("nbt"), state);
                 if (be != null) motorsKept++;
             }
@@ -290,6 +344,11 @@ public class PrepareEnigmaStructure {
         System.out.println("  size        = " + Arrays.toString(new int[]{size[0], size[1] - 1, size[2]}));
         System.out.println("  dropped     = " + droppedBase + " baseplate (y=0)");
         System.out.println("  replaced    = " + replaced + " block -> " + CORE_BLOCK);
+        System.out.println("  patched     = " + patched.size() + " of " + PATCHES.size() + " requested");
+        for (String line : patched) System.out.println("      " + line);
+        if (patched.size() != PATCHES.size()) {
+            throw new IllegalStateException("a patch matched no block; check its coordinates");
+        }
         System.out.println("  motor BEs   = " + motorsKept + " kept (id/Speed/ScrollValue only)");
         System.out.println("  new palette = " + newPalette.size() + "   new blocks = " + newBlocks.size());
     }
