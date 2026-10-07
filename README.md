@@ -75,22 +75,27 @@ $env:JAVA_TOOL_OPTIONS = '-Djava.net.preferIPv4Stack=true'
 原始数据是 Create 的 Ponder 捕获文件。它是**旧版**的（DataVersion 2975），
 但格式与 Create 自己在 1.21.1 用的结构模板**逐字段一致**，所以可以纯转换、不需要重排。
 
-`tools/PrepareEnigmaStructure.java` 做四件事（跑一次即可，产物已提交）：
+`tools/PrepareEnigmaStructure.java` 做这几件事（跑一次即可，产物已提交）：
 
 | 变更 | 原因 |
 |---|---|
-| 丢掉 y=0 的 225 格 | 那是 Ponder 的棋盘格底板，思索场景自己都没揭示过它，不属于机器 |
-| 丢掉 `(8,3,9)` | 一个从未被任何 `showSection` 揭示的云杉台阶，不属于展示出来的结构 |
+| 丢掉 y=0 的 225 格 | 那是 Ponder 的棋盘格底板，不属于机器 |
 | y 整体下移 1 格 | 让机器贴地 |
 | `(7,3,8)` 的箱子 → `create_enigma:enigma_core` | 见下 |
 | DataVersion 2975 → 3955 | 1.21.1；不改会被 datafixer 处理一遍 |
 | 清洗方块实体 NBT | 只留 7 台创造马达的 `id`/`Speed`/`ScrollValue`。其余字段（`Network`、`Source`、`Controller`、`Length`…）是 Ponder 虚拟世界里的跨方块引用，放置时会由 Create 重算，留着反而是脏数据 |
 
+> **没有跳过任何方块。** 早先的版本额外丢掉了 `(8,3,9)` 的云杉台阶，理由是"思索场景从未揭示它"。
+> **那个理由是错的**：场景第 19 步是
+> `showSection(fromTo(7, 3, 9, 8, 3, 8))`，而 `fromTo` 是**闭区间长方体**，覆盖的是
+> `x∈[7,8] × z∈[8,9]` 的全部四个内格——台阶在其中。丢掉它只会在小屋地面上留一个
+> 1×1 的洞。现已恢复。
+
 ```powershell
 & "$tc\jdk21\bin\java.exe" tools\PrepareEnigmaStructure.java <ponder.nbt> src\main\resources\data\create_enigma\structure\mojang_enigma.nbt
 ```
 
-结果：**82 个方块**，15×4×15。
+结果：**83 个方块**，15×4×15。
 
 ### 为什么核心放在原来箱子的位置
 
@@ -131,10 +136,10 @@ $env:JAVA_TOOL_OPTIONS = '-Djava.net.preferIPv4Stack=true'
 
 ### 周期性重扫，而不是监听破坏事件
 
-机器有 82 个方块，**没有一个属于本模组**——没地方记"我属于某个多方块"，
+机器有 83 个方块，**没有一个属于本模组**——没地方记"我属于某个多方块"，
 也没有哪个事件能可靠覆盖方块离开的所有方式：挖掘、爆炸、活塞、
 以及 Create 的 contraption 把它整个搬走。定时重读一次形状用同一段代码覆盖全部这些情况，
-而 82 次方块查询每秒一次，对一座展示品来说不值得优化掉。
+而 83 次方块查询每秒一次，对一座展示品来说不值得优化掉。
 
 ### 用自己的类路径读模板，不走数据包
 
@@ -199,7 +204,7 @@ $env:JAVA_TOOL_OPTIONS = '-Djava.net.preferIPv4Stack=true'
    `Rotation`/`Mirror` 变换，并让反馈能说明"你转错了方向"。
 3. **模板不可被数据包覆盖**（见上）。
 4. **不阻止破坏**——玩家可以拆掉机器，只是它会散架。没有任何"多方块保护"。
-5. 结构模板里的 82 个方块**没有任何一个是本模组的**，除了核心。
+5. 结构模板里的 83 个方块**没有任何一个是本模组的**，除了核心。
 
 ---
 
@@ -236,7 +241,7 @@ create-enigma/
    ├─ resources/
    │  ├─ assets/create_enigma/                   blockstate / 模型 / 中英文
    │  └─ data/create_enigma/
-   │     ├─ structure/mojang_enigma.nbt          82 方块，机器本体
+   │     ├─ structure/mojang_enigma.nbt          83 方块，机器本体
    │     ├─ structure/enigmagametests.empty.nbt  GameTest 场地
    │     └─ loot_table/blocks/enigma_core.json
    └─ templates/META-INF/neoforge.mods.toml

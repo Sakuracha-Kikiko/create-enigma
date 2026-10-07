@@ -37,8 +37,15 @@ public class PrepareEnigmaStructure {
     /** Where the core block goes, in the ORIGINAL ponder coordinates. */
     static final int CORE_X = 7, CORE_Y = 3, CORE_Z = 8;
 
-    /** The one block the ponder scene never reveals; excluded from the shipped structure. */
-    static final int SKIP_X = 8, SKIP_Y = 3, SKIP_Z = 9;
+    /**
+     * There is no skip list.
+     *
+     * <p>An earlier revision dropped the spruce slab at (8,3,9), on the belief that the ponder
+     * scene never reveals it. That was a misreading: the scene's step 19 is
+     * {@code showSection(fromTo(7, 3, 9, 8, 3, 8))}, and {@code fromTo} is an inclusive box, so it
+     * covers x in [7,8] x z in [8,9] - all four interior cells of the shed floor, the slab
+     * included. Dropping it left a one-block hole in that floor for no reason at all.
+     */
 
     /** DataVersion of Minecraft 1.21.1. */
     static final int DATA_VERSION = 3955;
@@ -244,14 +251,13 @@ public class PrepareEnigmaStructure {
         Map<String, Integer> index = new HashMap<>();
         List<Map<String, Object>> newBlocks = new ArrayList<>();
 
-        int droppedBase = 0, droppedSkip = 0, replaced = 0, motorsKept = 0;
+        int droppedBase = 0, replaced = 0, motorsKept = 0;
 
         for (Map<String, Object> block : blocks) {
             int[] pos = asIntTriple(block.get("pos"));
             int x = pos[0], y = pos[1], z = pos[2];
 
             if (y == 0) { droppedBase++; continue; }
-            if (x == SKIP_X && y == SKIP_Y && z == SKIP_Z) { droppedSkip++; continue; }
 
             Map<String, Object> state;
             Map<String, Object> be;
@@ -282,8 +288,7 @@ public class PrepareEnigmaStructure {
 
         System.out.println("out: " + out.getAbsolutePath());
         System.out.println("  size        = " + Arrays.toString(new int[]{size[0], size[1] - 1, size[2]}));
-        System.out.println("  dropped     = " + droppedBase + " baseplate (y=0), "
-                + droppedSkip + " never-revealed slab");
+        System.out.println("  dropped     = " + droppedBase + " baseplate (y=0)");
         System.out.println("  replaced    = " + replaced + " block -> " + CORE_BLOCK);
         System.out.println("  motor BEs   = " + motorsKept + " kept (id/Speed/ScrollValue only)");
         System.out.println("  new palette = " + newPalette.size() + "   new blocks = " + newBlocks.size());
