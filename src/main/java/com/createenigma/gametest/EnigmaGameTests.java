@@ -3,6 +3,7 @@ package com.createenigma.gametest;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.createenigma.content.EnigmaAdvancements;
 import com.createenigma.content.EnigmaCoreBlock;
 import com.createenigma.registry.CEBlocks;
 import com.createenigma.structure.BlockStateMatcher;
@@ -11,6 +12,7 @@ import com.createenigma.structure.EnigmaValidator;
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.content.decoration.palettes.AllPaletteBlocks;
 
+import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -136,6 +138,48 @@ public class EnigmaGameTests {
                     "the documented command /" + command + " did not build an assembled machine");
             helper.succeed();
         });
+    }
+
+    // --------------------------------------------------------------------------------
+    // The advancement the ponder unlocks.
+    //
+    // The trigger itself cannot be tested here: it lives in a client-side mixin on Ponder, and a
+    // GameTest has no client. What is testable is the whole server half - the two files loading,
+    // the child hanging off the root, and the criterion key matching what the code awards.
+    //
+    // NOT covered: the award() call itself. Getting a ServerPlayer in a GameTest means
+    // makeMockServerPlayerInLevel(), and that crashes this pack - the fake login fires Create's
+    // PlayerLoggedInEvent, which tries to send a network payload to a player with no connection
+    // and throws. So the assertion below stops one step short of the call, at the thing that
+    // would actually be wrong: a criterion key that does not match.
+    // --------------------------------------------------------------------------------
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void ponderAdvancementLoadsAndDeclaresTheAwardedCriterion(GameTestHelper helper) {
+        MinecraftServer server = helper.getLevel().getServer();
+
+        AdvancementHolder root = server.getAdvancements().get(EnigmaAdvancements.ROOT);
+        AdvancementHolder enigma = server.getAdvancements().get(EnigmaAdvancements.ENIGMA);
+        helper.assertTrue(root != null, "advancement " + EnigmaAdvancements.ROOT + " did not load");
+        helper.assertTrue(enigma != null, "advancement " + EnigmaAdvancements.ENIGMA + " did not load");
+        helper.assertTrue(root.value().isRoot(), EnigmaAdvancements.ROOT + " is not a root advancement");
+
+        // The root is what creates the tab. If the parent link were wrong the advancement would
+        // still be granted but would be displayed nowhere - a failure nothing else would catch.
+        helper.assertTrue(enigma.value().parent().isPresent()
+                        && enigma.value().parent().get().equals(EnigmaAdvancements.ROOT),
+                EnigmaAdvancements.ENIGMA + " does not declare " + EnigmaAdvancements.ROOT + " as its parent");
+
+        // award() returns false for an unknown criterion rather than throwing, so this is the
+        // assertion that stands between a typo and a feature that silently never appears.
+        helper.assertTrue(enigma.value().criteria().containsKey(EnigmaAdvancements.CRITERION),
+                EnigmaAdvancements.ENIGMA + " does not declare the criterion '"
+                        + EnigmaAdvancements.CRITERION + "'; it declares " + enigma.value().criteria().keySet());
+        helper.assertTrue(root.value().criteria().containsKey(EnigmaAdvancements.CRITERION),
+                EnigmaAdvancements.ROOT + " does not declare the criterion '"
+                        + EnigmaAdvancements.CRITERION + "'");
+
+        helper.succeed();
     }
 
     private static String describe(GameTestHelper helper) {

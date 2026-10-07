@@ -1,0 +1,28 @@
+{
+  "criteria": {
+    "impossible": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "announce_to_chat": false,
+    "background": "minecraft:textures/gui/advancements/backgrounds/end.png",
+    "description": {
+      "translate": "advancement.create_enigma.root.desc"
+    },
+    "icon": {
+      "count": 1,
+      "id": "create_enigma:enigma_core"
+    },
+    "show_toast": false,
+    "title": {
+      "translate": "advancement.create_enigma.root"
+    }
+  },
+  "requirements": [
+    [
+      "impossible"
+    ]
+  ],
+  "sends_telemetry_event": true
+}

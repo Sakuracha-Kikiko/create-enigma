@@ -4,5 +4,7 @@
   "create_enigma.enigma_core.formed": "神秘机械已成型。",
   "create_enigma.enigma_core.unformed": "神秘机械不完整 - (%s, %s, %s) %s",
   "create_enigma.enigma_core.unknown": "机器有一部分未加载，暂时无法判断。",
-  "create_enigma.enigma_core.no_template": "jar 内缺少结构模板——这是个 bug。"
+  "create_enigma.enigma_core.no_template": "jar 内缺少结构模板——这是个 bug。",
+  "advancement.create_enigma.root": "欢迎来到机械动力…？",
+  "advancement.create_enigma.root.desc": "……你确定这是机械动力吗？"
 }

@@ -29,3 +29,16 @@ description='''${mod_description}'''
     versionRange="[6.0.10,)"
     ordering="NONE"
     side="BOTH"
+
+# Required, not optional: PonderSceneMixin injects into net.createmod.ponder.foundation.PonderScene.
+# Ponder ships inside Create as a jar-in-jar, so requiring Create already implies it - this is
+# spelled out because a mixin whose target is absent fails at class load, not gracefully.
+[[dependencies.${mod_id}]]
+    modId="ponder"
+    type="required"
+    versionRange="[1.0.82,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[mixins]]
+    config="create_enigma.mixins.json"

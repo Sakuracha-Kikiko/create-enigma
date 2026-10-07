@@ -4,5 +4,7 @@
   "create_enigma.enigma_core.formed": "The Enigma is assembled.",
   "create_enigma.enigma_core.unformed": "Enigma incomplete - (%s, %s, %s) %s",
   "create_enigma.enigma_core.unknown": "Part of the machine is not loaded; cannot tell right now.",
-  "create_enigma.enigma_core.no_template": "Structure template is missing from the jar - this is a bug."
+  "create_enigma.enigma_core.no_template": "Structure template is missing from the jar - this is a bug.",
+  "advancement.create_enigma.root": "Welcome to Create...?",
+  "advancement.create_enigma.root.desc": "...are you sure this is Create?"
 }

@@ -210,16 +210,17 @@ $tc = '..\..\Create Test1\.toolchain'
 & "$tc\gradle\gradle-8.14.2\bin\gradle.bat" --project-dir . --no-daemon --offline runGameTestServer
 ```
 
-`EnigmaGameTests` 有 4 个测试，在真实服务器世界里跑：
+`EnigmaGameTests` 有 5 个测试，在真实服务器世界里跑：
 
 | 测试 | 断言 |
 |---|---|
 | `theDocumentedCommandPlacesTheMachine` | 本 README 里那条命令的 id 必须出现在 `/place template` 的补全列表里；然后用**真实命令分发器**执行那条命令，机器必须成型 |
 | `completeMachineAssemblesItsCore` | 用原版结构放置把整台机器搭出来，核心必须在 40 tick 内变成 `assembled=true` |
 | `removingOneBlockDisassemblesIt` | 先确认成型，再挖掉小屋地面的一块台阶，核心必须在 40 tick 内变回 `assembled=false` |
+| `ponderAdvancementLoadsAndDeclaresTheAwardedCriterion` | 两个成就文件都加载成功；子成就的 parent 确实是 root；两者都声明了代码里授予用的那个准则名 |
 | `matcherIgnoresDerivedPropertiesButNotRealChanges` | 直接检验**比较策略本身**：`waterlogged`/`snowy`/窗格连接/核心自身的 `assembled` 必须被忽略；台阶 `type`、皮带 `slope`/`part`/`casing`、以及换掉方块本身必须被判为不同 |
 
-**当前状态：4/4 通过。**
+**当前状态：5/5 通过。**
 
 第 1 个测试是**因为踩了坑才补上的**：README 最初把命令写成了 `/place structure`，
 而那个子命令只接受 worldgen 结构，导致结构根本放不出来。放置机制本身当时是验证过的
@@ -287,7 +288,7 @@ create-enigma/
    │  ├─ structure/BlockStateMatcher.java        属性白名单比较
    │  ├─ structure/EnigmaValidator.java          成型判定 + 放置辅助
    │  ├─ registry/                               CEBlocks / CEBlockEntities / CECreativeTabs
-   │  └─ gametest/EnigmaGameTests.java           2 个 GameTest
+   │  └─ gametest/EnigmaGameTests.java           5 个 GameTest
    ├─ resources/
    │  ├─ assets/create_enigma/                   blockstate / 模型 / 中英文
    │  └─ data/create_enigma/
@@ -461,4 +462,86 @@ jar 内只有 `com/createenigma`、`assets/create_enigma`、`data/create_enigma`
 而不是改自己的 LICENSE。**
 
 > 以上为实务惯例层面的说明，不构成法律意见。
+
+---
+
+## 11. 进度（成就）
+
+**看完「Mojang 的神秘机械」这个思索，会解锁一个进度。** 这是本模组所有神秘内容的开端。
+
+| | |
+|---|---|
+| 标签页 | 「欢迎来到机械动力…？」（root，`create_enigma:root`） |
+| 进度 | 「Enigma」（`create_enigma:enigma`），**刻意不做本地化** |
+| 描述 | 「jang工mo械由此开始」 |
+| 图标 | 谜之核心（占位，随时可换） |
+| 背景 | `minecraft:textures/gui/advancements/backgrounds/end.png` |
+
+值得注意的是：**在此之前，玩家看不到任何东西。** 服务端只把"对玩家可见"的进度发给客户端
+（`PlayerAdvancements` 里有一套可见性判定），而未解锁、又没有已解锁子节点的 root
+是不可见的。所以标签页和它的唯一一条内容会**同时出现**——揭示本身就是奖励。
+
+### 实现链路
+
+```
+客户端 mixin          轮询 PonderScene 的播放进度
+      ↓ 进度到 100%，且 getId() == create:creative_motor_mojang
+发网络包              EnigmaPonderWatched（空载荷）
+      ↓
+服务端                授予 root + enigma 两个进度（幂等）
+```
+
+### ⚠️ 为什么不用 `setFinished`——这条最值得记
+
+`PonderScene.setFinished(boolean)` 看起来是显而易见的钩子，**而且它是错的**：
+
+* 它**只被 `MarkAsFinishedInstruction` 调用**（反编译确认，`PonderScene` 内部没有任何调用点）
+* 而 `creativeMotorMojang` 是 `KineticsScenes` 里**唯一一个没有调用 `markAsFinished()`** 的场景
+* 所以它的 `isFinished()` **永远是 `false`**
+
+在 `setFinished` 上注入会编译通过、mixin 正常应用、**然后永远不触发**——而且不报任何错。
+正确的钩子是 `getSceneProgress()`（反编译确认就是 `currentTime / totalTime`）。
+
+### 客户端 trust
+
+Ponder 是纯客户端的，服务端**没有任何办法**观测到玩家看没看过。所以服务端在这里选择相信客户端。
+
+对进度（纯展示、无竞争性）这是可接受的。**但如果以后要让这个触发去解锁实际能力，
+必须在服务端加真正的校验**，不能只凭这一个包。
+
+另外载荷**刻意不带任何字段**——消息本身就是类型，所以服务端没有需要校验的客户端数据。
+以后要上报更多场景，再加字段并校验，不要一上来就发一个服务端盲信的 scene id。
+
+### 已知漏洞与未验证项
+
+* **进度条可以拖。** `PonderUI.seekToTime(int)` 是 public 的，玩家可以直接拖到最后触发。
+  对成就无所谓，但别把"进度 100%"当成"真的看完了"。
+* **mixin 是否生效没有被自动化验证。** 服务端不加载 `client` 段的 mixin，客户端要有窗口，
+  GameTest 两头都够不着。已做的核对是：目标方法 `tick()` 确实存在、mixin 配置合法、
+  类已打进 jar。**真正确认要靠跑一次客户端。**
+* **`award()` 调用本身没有测试。** 在 GameTest 里拿 `ServerPlayer` 只能靠
+  `makeMockServerPlayerInLevel()`，而它会**让本整合包直接崩**——假登录会触发 Create 的
+  `PlayerLoggedInEvent`，后者试图往一个没有连接的玩家发网络包并抛异常。
+  所以测试停在 `award()` 的前一步：断言成就确实声明了代码要授予的那个准则名。
+  这正是最可能出错的地方（准则名写错时 `award()` 只返回 `false`，不抛异常）。
+
+### 怎么手动测
+
+进游戏，走到创造马达的思索，翻到第二页看完。然后：
+
+1. 应该弹出 **Enigma** 的进度提示
+2. 按 L 打开进度界面 → 应该多出一个 **「欢迎来到机械动力…？」** 标签页
+3. 客户端日志里应该出现：
+
+```
+Watched create:creative_motor_mojang; asking the server for the advancement
+```
+
+第 3 条是判断 mixin 有没有生效的关键证据——**如果进度没弹，先看这行有没有出现**：
+
+| 日志里有 | 说明 |
+|---|---|
+| 有 | mixin 生效了，问题在服务端（看有没有 `Enigma advancements are missing` 的报错） |
+| 没有 | mixin 没应用，或场景 id 对不上 |
+
 

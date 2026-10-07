@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.createenigma.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "PonderSceneMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

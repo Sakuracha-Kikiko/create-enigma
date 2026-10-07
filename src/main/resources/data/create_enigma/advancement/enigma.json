@@ -1,0 +1,31 @@
+{
+  "parent": "create_enigma:root",
+  "criteria": {
+    "impossible": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "announce_to_chat": false,
+    "description": {
+      "text": "jang工mo械由此开始",
+      "color": "#DBA213"
+    },
+    "frame": "goal",
+    "hidden": true,
+    "icon": {
+      "count": 1,
+      "id": "create_enigma:enigma_core"
+    },
+    "title": {
+      "text": "Enigma",
+      "color": "#DBA213"
+    }
+  },
+  "requirements": [
+    [
+      "impossible"
+    ]
+  ],
+  "sends_telemetry_event": true
+}
