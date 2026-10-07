@@ -801,30 +801,55 @@ Ponder **没有任何办法让一个场景只对部分玩家可见**，所以挂
 改挂到本模组自己的方块上，才有办法加门槛。代价是**它不再紧挨着它所回答的那个场景**，
 这是真实的损失，这个场景得自己站住。
 
-### 门槛：**做不了，所以没有做**
+### 门槛：**能做，靠的是"重新注册"**
 
-曾经用 `IndexExclusionHelper` 加过一道门槛（"玩家看过 Mojang 的神秘机械才显示核心"）。
-**它被撤掉了，因为在两个界面上表现不一致——那比不做还糟。**
+**曾经记录过"做不了"，那是错的。** 正确的机制是 **`PonderIndex.reload()`**，公开 API：
 
-原因是查证过的：
+```java
+public static void reload() {
+    LOCALIZATION.clearShared();
+    SCENES.clearRegistry();      // 清空 multimap，并把 allowRegistration 置回 true
+    TAGS.clearRegistry();
+    registerAll();               // 重跑每个插件的 registerScenes / registerTags
+    gatherSharedText();
+}
+```
 
-* `IndexExclusionHelper` 的谓词**只被 `PonderIndexScreen` 使用**
-* 而物品实际所在的 `PonderTagScreen` **连 `exclusions` 字段都没有**，
-  它的物品来自 `TagRegistryAccess.getItems(tag)`，**不受任何插件谓词约束**
+而 `PonderSceneRegistry.clearRegistry` 的字节码是：
 
-所以那道门槛会：在扁平索引里藏起核心，在标签页里照常显示。**同一个物品，两个界面两个答案。**
+```java
+this.scenes.clear();
+this.allowRegistration = true;   // ← 注册阶段被重新打开
+```
 
-**Ponder 没有把场景对部分玩家隐藏的受支持做法**：
+**所以"这个场景该不该存在"可以在每次重载时重新回答一次**，读的是活的客户端状态：
 
-* 场景在客户端启动时全局注册一次，那时连世界都没有
-* `PonderScene` 上没有任何"隐藏 / 未解锁"标志
-* `IndexExclusionHelper` 是**物品级**的，永远不是场景级
+```java
+@Override
+public void registerScenes(PonderSceneRegistrationHelper<ResourceLocation> helper) {
+    if (!unlocked()) return;     // 不注册 = 场景不存在
+    helper.addStoryBoard(...);
+}
+```
 
-因此**这个场景现在对所有玩家可见**。要做成条件显示，只能 **mixin 进 Ponder 的界面**——
-那是一个"决定去改别人界面"的选择，而且要接受 **Ponder 一更新就可能静默失效**的风险。
+**为什么以前以为做不到**：只看到了 `addStoryBoard` 在注册阶段结束后会抛
+`Registration Phase has already ended!`，却没注意到 `clearRegistry()` 会把那个开关拧回去，
+于是"注册只能发生一次"就成了一个错误的前提。
 
-> 之前的版本还记录过一条"已确认可行"，那是错的：当时的证据链有一环是推断出来的，
-> 而且用来验证的那次测试根本没测到东西（物品不在索引里，不是因为门槛，是因为没有标签）。
+> **这个机制是从 Ponderer 这个模组学来的**（作者 nododiiiii，MIT）。
+> 它的 `PondererNeoForgeClient` 里写着：
+> `PonderIndex.addPlugin(new DynamicPonderPlugin()); // Do NOT call PonderIndex.reload() here.`
+
+**时机由 `EnigmaPonderUnlockWatcher` 决定**：
+
+* 条件判断是**轮询**的。客户端本来就持有玩家的进度列表（服务端发的），所以不需要发包、
+  也不需要等事件——只是没有"进度刚被加进客户端副本"的事件，于是每 tick 比一次布尔值。
+* **重载会推迟到没有界面打开时。** `PonderIndex.reload()` 重建的是**全游戏**的思索，
+  不只是本模组的；而条件恰恰是在玩家**正看着思索**的时候翻转的，所以必须等界面关掉。
+  等一等没有代价——索引只在被打开时才被读取。
+
+**标签也一起被门禁。** 目前本模组只有这一个场景，如果标签无条件存在，那"这里有个章节但里面
+什么都没有"本身就是个提示。等以后有该常驻显示的场景时，标签的注册会移出门禁。
 
 ### 两个静默失败，都值得记
 
