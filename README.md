@@ -431,6 +431,45 @@ git push github main
 
 第一次成功时凭据管理器会弹一次 GitHub 登录窗（上次没走完，凭据没存下来）。
 
+### 推送被拒怎么办（`! [rejected] ... (fetch first)`）
+
+这个报错的意思是：**远端有你本地没有的提交**，所以 Git 拒绝覆盖它。**两个远程各自被推过、
+历史分叉了**的时候就会这样——本项目真的发生过一次：GitHub 上有一个直接在网页端做的
+LICENSE 提交，而本地/Gitee 那条线上后来把那行又删掉了。
+
+**处理顺序（不要跳步）：**
+
+```bash
+git fetch github                      # 1. 先看清楚远端到底有什么
+git log --oneline github/main         # 2. 看看那几个提交是什么
+git merge-base main github/main       # 3. 有没有共同祖先？没有就不能直接合并
+git pull --rebase github main         # 4. 把本地提交重放到远端提交之上
+git push github main                  # 5. 这时是快进推送，不需要 force
+```
+
+### ⚠️ 不要用 `git push --force`
+
+`--force` 会**直接覆盖远端**，把那边你还没有的提交永久删掉。报错信息里虽然会提到
+`--force`，但那是给"确定远端的东西不要了"的场景准备的。
+
+**如果确实必须重写历史**（比如 rebase 之后远端对不上了），用
+**`--force-with-lease`**，而且必须先证明远端没有会丢的东西：
+
+```bash
+git fetch origin                                   # 让 lease 基于最新状态
+git cherry main origin/main                        # 按"补丁内容"比对，不看哈希
+git diff origin/main main --stat                   # 文件内容真的没差别？
+git push --force-with-lease origin main
+```
+
+* `git cherry` 输出里以 `+` 开头的提交，才是"远端有、本地没有（按内容比）"的
+* **`--force-with-lease` 与 `--force` 不同**：远端若有你没抓到的变动，它会**自动拒绝**，
+  而不是闷头覆盖
+
+> 本项目实战过一次：rebase 之后 `git cherry` 显示缺失 0 个、`git diff` 为空，
+> 确认内容一字未变，才用 `--force-with-lease` 对齐的 Gitee。
+> 动手前还打了个 `git tag backup-before-rebase` 留退路。
+
 ### 日常只需要记三条
 
 ```bash
