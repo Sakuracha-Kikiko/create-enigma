@@ -45,12 +45,16 @@ public final class EnigmaWrenchTooltip {
         }
 
         List<Component> tooltip = event.getToolTip();
-        tooltip.add(Component.empty());
+
+        // The hint stays in both states, and nothing is inserted before it. Both are copied from
+        // Create's own summary layout, and both are about the tooltip not moving: the hint is the
+        // first line either way, so pressing Shift only appends below it instead of reflowing the
+        // box, and there is no blank between the mod name and the hint when collapsed.
+        tooltip.add(holdShiftForSummary());
         if (Screen.hasShiftDown()) {
+            tooltip.add(Component.empty());
             tooltip.add(summary());
             tooltip.add(aside());
-        } else {
-            tooltip.add(holdShiftForSummary());
         }
     }
 
