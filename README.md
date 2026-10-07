@@ -730,9 +730,28 @@ boolean revealed = adv.get(EnigmaAdvancements.ENIGMA) != null;
 |---|---|
 | 标题 | 神的作品，万机之首，厄尼格默 |
 | 场景 id | `create_enigma:mojang_enigma_true` |
-| 挂载物品 | **`create_enigma:enigma_core`（谜之核心）** |
+| 挂载物品 | `create_enigma:enigma_core`（谜之核心） |
+| **所在标签** | **`create_enigma:enigma`「神秘机械」** |
 | 图纸 | **引用** `create:creative_motor_mojang` |
 | 语言键 | `create_enigma.ponder.mojang_enigma_true.header` |
+| 标签语言键 | `create_enigma.ponder.tag.enigma` + `.description` |
+
+### ⚠️ 标签不是可选项——没有标签的物品根本不会出现
+
+**这是核心一直不出现在索引里的真正原因**，而且它和场景注册毫无关系。
+
+Ponder 的界面是**按标签归档**的。`PonderTagScreen.init` 里：
+
+```java
+PonderIndex.getTagAccess().getItems(tag).stream()   // ← 物品来自"显式归档到该标签"的集合
+        .map(...).filter(...).forEach(items::add);
+```
+
+**一个没有任何标签的思索物品，没有地方可以待。** 所以之前两轮排查（图纸路径、注册时序、
+索引过滤器）全都在错误的方向上——**场景一直是注册成功的，缺的是归档。**
+
+**本模组以后所有思索都放在 `create_enigma:enigma` 这一个标签下**，让整个模组读起来是
+一章，而不是散落在 Create 各个分类里的零散条目。
 
 ### 和原场景唯一的差别
 
@@ -761,22 +780,30 @@ Ponder **没有任何办法让一个场景只对部分玩家可见**，所以挂
 改挂到本模组自己的方块上，才有办法加门槛。代价是**它不再紧挨着它所回答的那个场景**，
 这是真实的损失，这个场景得自己站住。
 
-### 索引页的门槛机制（以及它的边界）
+### 门槛：**做不了，所以没有做**
 
-`IndexExclusionHelper` 接受的是 `Predicate<ItemLike>`，而这些谓词是在
-**索引界面构建时**才求值的（`PonderIndexScreen.isItemIncluded` 用 `noneMatch` 流过它们），
-**不是在注册时**。所以谓词里可以读**活的客户端状态**——这里读的是玩家有没有那个进度。
-这是整件事能成立的原因。
+曾经用 `IndexExclusionHelper` 加过一道门槛（"玩家看过 Mojang 的神秘机械才显示核心"）。
+**它被撤掉了，因为在两个界面上表现不一致——那比不做还糟。**
 
-```java
-helper.exclude(item -> isEnigmaCore(item) && !hasWatchedTheEnigma());
-```
+原因是查证过的：
 
-**能隐藏的只有"物品"，永远不是"单个场景"。** 所以门槛的做法是**藏起核心这个物品**，
-而不是藏起那个场景。由此带来一个边界：
+* `IndexExclusionHelper` 的谓词**只被 `PonderIndexScreen` 使用**
+* 而物品实际所在的 `PonderTagScreen` **连 `exclusions` 字段都没有**，
+  它的物品来自 `TagRegistryAccess.getItems(tag)`，**不受任何插件谓词约束**
 
-> **已经拿着谜之核心的玩家，即使它从索引里消失，依然能直接对它开启思索。**
-> **这道门槛是"别剧透"，不是"锁"。**
+所以那道门槛会：在扁平索引里藏起核心，在标签页里照常显示。**同一个物品，两个界面两个答案。**
+
+**Ponder 没有把场景对部分玩家隐藏的受支持做法**：
+
+* 场景在客户端启动时全局注册一次，那时连世界都没有
+* `PonderScene` 上没有任何"隐藏 / 未解锁"标志
+* `IndexExclusionHelper` 是**物品级**的，永远不是场景级
+
+因此**这个场景现在对所有玩家可见**。要做成条件显示，只能 **mixin 进 Ponder 的界面**——
+那是一个"决定去改别人界面"的选择，而且要接受 **Ponder 一更新就可能静默失效**的风险。
+
+> 之前的版本还记录过一条"已确认可行"，那是错的：当时的证据链有一环是推断出来的，
+> 而且用来验证的那次测试根本没测到东西（物品不在索引里，不是因为门槛，是因为没有标签）。
 
 ### 两个静默失败，都值得记
 

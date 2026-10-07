@@ -1,50 +1,49 @@
 package com.createenigma.client.ponder;
 
 import com.createenigma.CreateEnigma;
-import com.createenigma.content.EnigmaAdvancements;
 import com.createenigma.registry.CEBlocks;
+import com.mojang.logging.LogUtils;
 
-import net.createmod.ponder.api.registration.IndexExclusionHelper;
 import net.createmod.ponder.api.registration.PonderPlugin;
 import net.createmod.ponder.api.registration.PonderSceneRegistrationHelper;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.createmod.ponder.api.registration.PonderTagRegistrationHelper;
 import net.minecraft.resources.ResourceLocation;
 
 import org.slf4j.Logger;
 
-import com.mojang.logging.LogUtils;
-
 /**
- * This mod's ponder content: one scene, showing the machine complete.
+ * This mod's ponder content: one tag, and the scenes filed under it.
  *
- * <h2>It hangs off the Enigma Core, not off Create's Creative Motor</h2>
+ * <h2>Why a tag is not optional</h2>
  *
- * <p>Attaching it to the Creative Motor would put it directly under Create's own scene in the
- * index, which is the one place it must not be: Ponder gives no way to show a scene to some
- * players and not others, so from the moment it existed every player would see a second, complete
- * version of the machine sitting next to the first one. That is the entire secret, given away on
- * the index screen before anyone has done anything.
+ * <p>The ponder UI files items under tags, not the other way round. {@code PonderTagScreen.init}
+ * builds its list from {@code PonderIndex.getTagAccess().getItems(tag)} - the items explicitly
+ * filed under that tag - so <b>an item whose storyboards carry no tag has nowhere to appear.</b>
+ * That is why the Enigma Core was invisible in the index despite its scene registering correctly:
+ * the scene was never the problem, the filing was.
  *
- * <p>Hanging it off this mod's own block makes it gatable - see {@link #indexExclusions}. The
- * cost is that it is no longer adjacent to the scene it answers, which is a real loss; the scene
- * has to stand on its own.
+ * <p>Every future scene in this mod belongs under {@link #ENIGMA_TAG}, so that the whole mod
+ * reads as one chapter rather than as loose entries scattered through Create's categories.
  *
- * <h2>Gating</h2>
+ * <h2>What this costs</h2>
  *
- * <p>{@code IndexExclusionHelper} takes a {@code Predicate<ItemLike>}, and those predicates are
- * evaluated when the index screen is built ({@code PonderIndexScreen.isItemIncluded} streams over
- * them), not when they are registered. A predicate can therefore read live client state - here,
- * whether the player has the Enigma advancement - which is what makes gating possible at all.
+ * <p>Being in a tag makes the scene visible to everyone, always. There is no supported way to
+ * show a ponder scene to some players and not others: scenes are registered globally at client
+ * startup, and the one filter that exists ({@code IndexExclusionHelper}) is <b>item-level and only
+ * applied by {@code PonderIndexScreen}</b> - {@code PonderTagScreen} has no such filter at all.
+ * A gate built on it would therefore hide the item on one screen and not the other, which is worse
+ * than no gate. So there is none, and the scene is visible from the start.
  *
- * <p>Only the <em>item</em> can be hidden, never a single scene; that is why the gate works by
- * hiding the core rather than by hiding the scene. The consequence is that a player who already
- * holds an Enigma Core can still ponder it directly even when it is hidden from the index - the
- * gate is a "don't spoil it" measure, not a lock.
+ * <p>Making it conditional needs a mixin on the ponder UI. That is a deliberate decision to patch
+ * someone else's screen, and it should be taken knowing it can break silently on a Ponder update.
  */
 public class EnigmaPonderPlugin implements PonderPlugin {
 
     private static final Logger LOGGER = LogUtils.getLogger();
+
+    /** The chapter every scene in this mod is filed under. */
+    public static final ResourceLocation ENIGMA_TAG =
+            ResourceLocation.fromNamespaceAndPath(CreateEnigma.MOD_ID, "enigma");
 
     /** The core's item, which is what our scene hangs off. */
     private static final ResourceLocation ENIGMA_CORE =
@@ -68,47 +67,21 @@ public class EnigmaPonderPlugin implements PonderPlugin {
     }
 
     @Override
-    public void registerScenes(PonderSceneRegistrationHelper<ResourceLocation> helper) {
-        // Logged because nothing else can tell us whether this ran: a scene that never registers
-        // looks identical to a scene whose item is missing from the index.
-        LOGGER.info("Enigma ponder: registering scene for {} from schematic {}",
-                ENIGMA_CORE, MOJANG_SCHEMATIC);
-        helper.addStoryBoard(ENIGMA_CORE, MOJANG_SCHEMATIC, EnigmaScenes::firstOfAllMachines);
+    public void registerTags(PonderTagRegistrationHelper<ResourceLocation> helper) {
+        helper.registerTag(ENIGMA_TAG)
+                .addToIndex()
+                .item(CEBlocks.ENIGMA_CORE.get(), true, false)
+                .title("神秘机械")
+                .description("源初的万机之神，我祈求您降下您的目光")
+                .register();
     }
 
     @Override
-    public void indexExclusions(IndexExclusionHelper helper) {
-        helper.exclude(item -> {
-            boolean isCore = isEnigmaCore(item);
-            if (isCore) {
-                boolean watched = hasWatchedTheEnigma();
-                LOGGER.info("Enigma ponder: index check for the core - watched={}, so it is {}",
-                        watched, watched ? "shown" : "hidden");
-                return !watched;
-            }
-            return false;
-        });
-    }
-
-    private static boolean isEnigmaCore(net.minecraft.world.level.ItemLike item) {
-        return item.asItem() == CEBlocks.ENIGMA_CORE.get().asItem();
-    }
-
-    /**
-     * Whether the player has watched Create's scene for this machine.
-     *
-     * <p>The client is the only side that can answer this: Ponder is client-side, and the client
-     * already holds the player's advancement list because the server sends it. No extra state and
-     * no extra packet are needed.
-     *
-     * <p>Never called before a world is loaded - the predicate only runs when the index screen is
-     * opened - so the null checks are for the main-menu edge case rather than for normal play.
-     */
-    private static boolean hasWatchedTheEnigma() {
-        ClientPacketListener connection = Minecraft.getInstance().getConnection();
-        if (connection == null) {
-            return false;
-        }
-        return connection.getAdvancements().get(EnigmaAdvancements.ENIGMA) != null;
+    public void registerScenes(PonderSceneRegistrationHelper<ResourceLocation> helper) {
+        // Logged because a scene that never registers looks exactly like a scene that registered
+        // but whose item is not filed anywhere - both leave the index empty.
+        LOGGER.info("Enigma ponder: registering scene for {} under tag {}, schematic {}",
+                ENIGMA_CORE, ENIGMA_TAG, MOJANG_SCHEMATIC);
+        helper.addStoryBoard(ENIGMA_CORE, MOJANG_SCHEMATIC, EnigmaScenes::firstOfAllMachines, ENIGMA_TAG);
     }
 }
