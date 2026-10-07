@@ -9,6 +9,7 @@
   "create_enigma.enigma_wrench.summary": "A multi-purpose tool for debugging %s...?",
   "create_enigma.enigma_wrench.subject": "the Enigma",
   "create_enigma.enigma_wrench.aside": "Debug WHAT? Just say it",
+  "create_enigma.ponder.mojang_enigma_true.header": "The Work of God, First of All Machines, Enigma",
   "advancement.create_enigma.root": "Welcome to Create...?",
   "advancement.create_enigma.root.desc": "...are you sure this is Create?"
 }

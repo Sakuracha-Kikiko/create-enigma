@@ -720,4 +720,76 @@ boolean revealed = adv.get(EnigmaAdvancements.ENIGMA) != null;
 * **物品模型借用了 Create 的扳手模型**（`create:item/wrench`）。所以在背包里
   **它和 Create 原版扳手长得一模一样**——这是占位，随时要换。
 
+---
+
+## 13. 我们自己的思索：万机之首
+
+在创造马达的思索列表里加了**第三个**场景，排在 Create 的「Mojang 的神秘机械」后面。
+
+| | |
+|---|---|
+| 标题 | 神的作品，万机之首，厄尼格默 |
+| 场景 id | `create_enigma:mojang_enigma_true` |
+| 挂载物品 | `create:creative_motor`（Create 的物品） |
+| 图纸 | **直接引用** `create:ponder/creative_motor_mojang` |
+| 语言键 | `create_enigma.ponder.mojang_enigma_true.header` |
+
+### 和原场景唯一的差别
+
+原场景第 3 步只揭示 `x=7` 那条皮带；我们**把 `(6,1,3)` 那台马达一起揭示**：
+
+```java
+// Create
+showSection(select().fromTo(7, 1, 3, 7, 1, 8), Direction.NORTH);
+
+// 我们
+showSection(select().fromTo(7, 1, 3, 7, 1, 8)
+        .add(select().position(6, 1, 3)), Direction.NORTH);
+```
+
+其余 21 步、所有 `idle(3)`、摄像机 `rotateCameraY(-90)`、结尾的 `idle(20)` —— **逐字照抄**，
+这样两个场景读起来是同一台机器。
+
+**刻意没有给它单独的停顿，也没有加文字。** 它和它驱动的那条皮带在同一拍里出现。
+这个场景展示的是一台**完整的机器**，不是一条**勘误**——差别是用来被对比出来的，不是被指出来的。
+给它一个聚光灯，图纸就变成答案了。
+
+### 为什么是"加"而不是"改"
+
+**Ponder 没有任何替换或移除场景的机制**，这是查证过的：
+
+* `PonderSceneRegistry.addStoryBoard` 里是 `LinkedHashMultimap.put(...)` —— **追加，不覆盖**
+* 注册表的全部方法只有 `clearRegistry` / `addStoryBoard` / 若干读取和 `compile`，**没有 remove**
+* `IndexExclusionHelper` 只能排除**整个物品**——拿它排掉创造马达，会把它的转速/应力/反转等
+  全部思索一起干掉
+
+所以 Create 的场景原封不动，我们的接在后面。
+
+**顺序靠注册顺序**：`LinkedHashMultimap` 保插入序，而本模组依赖 Create，
+所以 Create 的插件先注册、它那两个场景先落位，我们排第三。
+（Create 自己也从不调用 `orderBefore`/`orderAfter`。）
+
+### 图纸是引用，不是复制
+
+`addStoryBoard` 接受 `ResourceLocation` 的那个重载，第二个参数就是**图纸位置**：
+
+```java
+helper.addStoryBoard(CREATIVE_MOTOR, MOJANG_SCHEMATIC, EnigmaScenes::firstOfAllMachines);
+//                   create:creative_motor, create:ponder/creative_motor_mojang
+```
+
+如果改用接受**字符串**的重载，那个字符串会被解析到**本模组自己的命名空间**下，
+就得往 jar 里再塞一份机器的 NBT。直接引用 Create 已有的图纸既省事，
+又刚好是我们想展示的东西——那份图纸里本来就**包含**Create 的场景从不揭示的那台马达。
+
+> 那条路径已核对：`assets/create/ponder/creative_motor_mojang.nbt` 确实在 Create 的 jar 里。
+
+### 未验证项
+
+* **场景是否真的出现在列表第三位、画面是否正确，没有自动化验证。** Ponder 是纯客户端的，
+  注册发生在客户端启动，GameTest 服务端根本不加载这些类。已核对的只有：编译通过
+  （API 签名正确）、三个类都在 jar 里、语言键正确、引用的图纸存在。
+* **标题的"厄尼格默"是新造的译名**，此前出现过两种写法（Create 的场景叫「神秘机械」、
+  我们的进度叫「Enigma」）。见下方说明。
+
 
