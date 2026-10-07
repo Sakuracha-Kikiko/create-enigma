@@ -11,6 +11,10 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.resources.ResourceLocation;
 
+import org.slf4j.Logger;
+
+import com.mojang.logging.LogUtils;
+
 /**
  * This mod's ponder content: one scene, showing the machine complete.
  *
@@ -40,6 +44,8 @@ import net.minecraft.resources.ResourceLocation;
  */
 public class EnigmaPonderPlugin implements PonderPlugin {
 
+    private static final Logger LOGGER = LogUtils.getLogger();
+
     /** The core's item, which is what our scene hangs off. */
     private static final ResourceLocation ENIGMA_CORE =
             ResourceLocation.fromNamespaceAndPath(CreateEnigma.MOD_ID, "enigma_core");
@@ -63,12 +69,25 @@ public class EnigmaPonderPlugin implements PonderPlugin {
 
     @Override
     public void registerScenes(PonderSceneRegistrationHelper<ResourceLocation> helper) {
+        // Logged because nothing else can tell us whether this ran: a scene that never registers
+        // looks identical to a scene whose item is missing from the index.
+        LOGGER.info("Enigma ponder: registering scene for {} from schematic {}",
+                ENIGMA_CORE, MOJANG_SCHEMATIC);
         helper.addStoryBoard(ENIGMA_CORE, MOJANG_SCHEMATIC, EnigmaScenes::firstOfAllMachines);
     }
 
     @Override
     public void indexExclusions(IndexExclusionHelper helper) {
-        helper.exclude(item -> isEnigmaCore(item) && !hasWatchedTheEnigma());
+        helper.exclude(item -> {
+            boolean isCore = isEnigmaCore(item);
+            if (isCore) {
+                boolean watched = hasWatchedTheEnigma();
+                LOGGER.info("Enigma ponder: index check for the core - watched={}, so it is {}",
+                        watched, watched ? "shown" : "hidden");
+                return !watched;
+            }
+            return false;
+        });
     }
 
     private static boolean isEnigmaCore(net.minecraft.world.level.ItemLike item) {
