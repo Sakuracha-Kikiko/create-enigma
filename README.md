@@ -478,6 +478,25 @@ jar 内只有 `com/createenigma`、`assets/create_enigma`、`data/create_enigma`
 | 图标 | 谜之核心（占位，随时可换） |
 | 背景 | `minecraft:textures/gui/advancements/backgrounds/end.png` |
 
+### 不要在标题/描述里写 `color`
+
+`enigma.json` 的 title 和 description **刻意不带颜色字段**。曾经带过
+`"color": "#DBA213"`（从 Create 自己的成就文件抄的写法），结果进度提示和原版成就长得不一样。
+
+颜色的来源有两层，容易混：
+
+* **`AdvancementType`**（`TASK` / `GOAL` / `CHALLENGE`）—— 前两个都是 `GREEN`，
+  只有 `CHALLENGE` 是 `DARK_PURPLE`
+* **toast 渲染**（`AdvancementToast`）—— 它画的是 **frame 标签 + 标题**，
+  标签颜色写死为 `type == CHALLENGE ? 0xFFAAFF : 0xFFFF00`；
+  而 `DisplayInfo.getTitle()` **原样返回组件、不注入任何颜色**
+
+所以标题的颜色**只可能来自 JSON 里的 `color` 字段**。**想让进度和原版一致，就不要写它。**
+
+> 注：`AdvancementToast` 画的是「frame 标签 + 标题」两行。如果你在游戏里看到的提示是
+> 「标题 + 描述」两行，那说明有别的什么东西在渲染它——目前实例里只有 Create 和本模组，
+> 而 Create 并不替换 `AdvancementToast`。这一点尚未查清。
+
 ### 聊天栏通知有两个条件
 
 原版的判定是**两个条件的与**（`PlayerAdvancements:180`）：

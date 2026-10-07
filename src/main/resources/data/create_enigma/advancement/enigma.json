@@ -8,8 +8,7 @@
   "display": {
     "announce_to_chat": true,
     "description": {
-      "text": "jang工mo械由此开始",
-      "color": "#DBA213"
+      "text": "jang工mo械由此开始"
     },
     "frame": "task",
     "hidden": true,
@@ -18,8 +17,7 @@
       "id": "create_enigma:enigma_core"
     },
     "title": {
-      "text": "Enigma",
-      "color": "#DBA213"
+      "text": "Enigma"
     }
   },
   "requirements": [
