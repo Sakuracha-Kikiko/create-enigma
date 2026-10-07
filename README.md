@@ -724,14 +724,14 @@ boolean revealed = adv.get(EnigmaAdvancements.ENIGMA) != null;
 
 ## 13. 我们自己的思索：万机之首
 
-在创造马达的思索列表里加了**第三个**场景，排在 Create 的「Mojang 的神秘机械」后面。
+展示**完整的机器**（含 Create 的场景从不揭示的那台马达）。
 
 | | |
 |---|---|
 | 标题 | 神的作品，万机之首，厄尼格默 |
 | 场景 id | `create_enigma:mojang_enigma_true` |
-| 挂载物品 | `create:creative_motor`（Create 的物品） |
-| 图纸 | **直接引用** `create:ponder/creative_motor_mojang` |
+| 挂载物品 | **`create_enigma:enigma_core`（谜之核心）** |
+| 图纸 | **引用** `create:creative_motor_mojang` |
 | 语言键 | `create_enigma.ponder.mojang_enigma_true.header` |
 
 ### 和原场景唯一的差别
@@ -747,49 +747,81 @@ showSection(select().fromTo(7, 1, 3, 7, 1, 8)
         .add(select().position(6, 1, 3)), Direction.NORTH);
 ```
 
-其余 21 步、所有 `idle(3)`、摄像机 `rotateCameraY(-90)`、结尾的 `idle(20)` —— **逐字照抄**，
-这样两个场景读起来是同一台机器。
+其余 21 步、所有 `idle(3)`、摄像机 `rotateCameraY(-90)`、结尾的 `idle(20)` —— **逐字照抄**。
 
 **刻意没有给它单独的停顿，也没有加文字。** 它和它驱动的那条皮带在同一拍里出现。
 这个场景展示的是一台**完整的机器**，不是一条**勘误**——差别是用来被对比出来的，不是被指出来的。
-给它一个聚光灯，图纸就变成答案了。
 
-### 为什么是"加"而不是"改"
+### 为什么不挂在创造马达下面
 
-**Ponder 没有任何替换或移除场景的机制**，这是查证过的：
+最初挂在创造马达上（排在 Create 的场景后面）。**那是错的**，原因见下一节：
+Ponder **没有任何办法让一个场景只对部分玩家可见**，所以挂在创造马达上等于
+**对所有玩家剧透**——索引页上会并排出现一台机器的"残缺版"和"完整版"。
+
+改挂到本模组自己的方块上，才有办法加门槛。代价是**它不再紧挨着它所回答的那个场景**，
+这是真实的损失，这个场景得自己站住。
+
+### 索引页的门槛机制（以及它的边界）
+
+`IndexExclusionHelper` 接受的是 `Predicate<ItemLike>`，而这些谓词是在
+**索引界面构建时**才求值的（`PonderIndexScreen.isItemIncluded` 用 `noneMatch` 流过它们），
+**不是在注册时**。所以谓词里可以读**活的客户端状态**——这里读的是玩家有没有那个进度。
+这是整件事能成立的原因。
+
+```java
+helper.exclude(item -> isEnigmaCore(item) && !hasWatchedTheEnigma());
+```
+
+**能隐藏的只有"物品"，永远不是"单个场景"。** 所以门槛的做法是**藏起核心这个物品**，
+而不是藏起那个场景。由此带来一个边界：
+
+> **已经拿着谜之核心的玩家，即使它从索引里消失，依然能直接对它开启思索。**
+> **这道门槛是"别剧透"，不是"锁"。**
+
+### 两个静默失败，都值得记
+
+**① 图纸路径多写了一层——场景是空的，而且不报错。**
+
+`PonderSceneRegistry.loadSchematic` 自己会拼路径：
+
+```java
+ResourceLocation file = fromNamespaceAndPath(loc.getNamespace(), "ponder/" + loc.getPath() + ".nbt");
+if (resource.isEmpty()) {
+    LOGGER.error(...);
+    return new StructureTemplate();     // ← 空模板，不抛异常
+}
+```
+
+所以正确的值是 **`create:creative_motor_mojang`**——**不带 `ponder/` 前缀、不带 `.nbt` 后缀**。
+当时写成了 `create:ponder/creative_motor_mojang`，于是它去找
+`create:ponder/ponder/creative_motor_mojang.nbt`，找不到，**返回一个空结构**。
+结果就是：边界（底座）正常显示，机器什么都没有，游戏不崩、不报错。
+
+**② `addStoryBoard` 没有替换语义。**
+
+Ponder 里**无法替换或移除已注册的场景**，这是查证过的：
 
 * `PonderSceneRegistry.addStoryBoard` 里是 `LinkedHashMultimap.put(...)` —— **追加，不覆盖**
 * 注册表的全部方法只有 `clearRegistry` / `addStoryBoard` / 若干读取和 `compile`，**没有 remove**
-* `IndexExclusionHelper` 只能排除**整个物品**——拿它排掉创造马达，会把它的转速/应力/反转等
-  全部思索一起干掉
+* `IndexExclusionHelper` 只能排除**整个物品**
 
-所以 Create 的场景原封不动，我们的接在后面。
+所以 Create 的场景原封不动。**顺序靠注册顺序**：`LinkedHashMultimap` 保插入序，
+而本模组依赖 Create，所以 Create 的插件先注册、它的场景先落位。
 
-**顺序靠注册顺序**：`LinkedHashMultimap` 保插入序，而本模组依赖 Create，
-所以 Create 的插件先注册、它那两个场景先落位，我们排第三。
-（Create 自己也从不调用 `orderBefore`/`orderAfter`。）
+### 命名空间
 
-### 图纸是引用，不是复制
+`DefaultPonderSceneRegistrationHelper` 的 namespace 字段来自插件构造时的参数，
+而它来自 **`PonderPlugin.getModId()`**。所以我们的场景是 `create_enigma:...`，
+语言键在 `create_enigma.ponder.*` 下，**不污染 Create 的命名空间**。
 
-`addStoryBoard` 接受 `ResourceLocation` 的那个重载，第二个参数就是**图纸位置**：
-
-```java
-helper.addStoryBoard(CREATIVE_MOTOR, MOJANG_SCHEMATIC, EnigmaScenes::firstOfAllMachines);
-//                   create:creative_motor, create:ponder/creative_motor_mojang
-```
-
-如果改用接受**字符串**的重载，那个字符串会被解析到**本模组自己的命名空间**下，
-就得往 jar 里再塞一份机器的 NBT。直接引用 Create 已有的图纸既省事，
-又刚好是我们想展示的东西——那份图纸里本来就**包含**Create 的场景从不揭示的那台马达。
-
-> 那条路径已核对：`assets/create/ponder/creative_motor_mojang.nbt` 确实在 Create 的 jar 里。
+（语言键格式是从 Create 的 lang 文件反推确认的：是 `.header`，不是 `.title`。）
 
 ### 未验证项
 
-* **场景是否真的出现在列表第三位、画面是否正确，没有自动化验证。** Ponder 是纯客户端的，
-  注册发生在客户端启动，GameTest 服务端根本不加载这些类。已核对的只有：编译通过
-  （API 签名正确）、三个类都在 jar 里、语言键正确、引用的图纸存在。
-* **标题的"厄尼格默"是新造的译名**，此前出现过两种写法（Create 的场景叫「神秘机械」、
-  我们的进度叫「Enigma」）。见下方说明。
+* **画面是否正确、门槛是否生效，没有自动化验证。** Ponder 是纯客户端的，注册发生在
+  客户端启动，GameTest 服务端根本不加载这些类。已核对的只有：编译通过（API 签名正确）、
+  类都在 jar 里、语言键正确、引用的图纸路径存在。
+* **门槛条件是占位的**（"玩家已获得 `enigma` 进度"）。按设计这一步应该更靠后，
+  条件随时可以换成别的。
 
 

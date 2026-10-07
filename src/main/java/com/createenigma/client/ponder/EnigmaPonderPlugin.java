@@ -1,41 +1,60 @@
 package com.createenigma.client.ponder;
 
 import com.createenigma.CreateEnigma;
+import com.createenigma.content.EnigmaAdvancements;
+import com.createenigma.registry.CEBlocks;
 
+import net.createmod.ponder.api.registration.IndexExclusionHelper;
 import net.createmod.ponder.api.registration.PonderPlugin;
 import net.createmod.ponder.api.registration.PonderSceneRegistrationHelper;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.resources.ResourceLocation;
 
 /**
- * Adds this mod's own ponder scene to Create's Creative Motor.
+ * This mod's ponder content: one scene, showing the machine complete.
  *
- * <p><b>Why a new scene instead of fixing Create's.</b> Ponder has no way to replace or remove a
- * registered scene: {@code PonderSceneRegistry.addStoryBoard} puts into a {@code LinkedHashMultimap}
- * (append, never overwrite) and the registry exposes no remove method at all. The only lever is
- * {@code IndexExclusionHelper}, and that excludes a whole <em>item</em> - using it here would take
- * the Creative Motor's normal scenes down with it. So the original scene stays exactly as Create
- * wrote it, and this one is added after it.
+ * <h2>It hangs off the Enigma Core, not off Create's Creative Motor</h2>
  *
- * <p><b>Order comes from registration, not from an explicit rule.</b> The registry uses a
- * {@code LinkedHashMultimap}, so an item's scenes iterate in the order they were registered. This
- * mod depends on Create, so Create's plugin is added first and its two Creative Motor scenes land
- * first; ours is third. Create itself relies on the same behaviour - it never calls
- * {@code orderBefore}/{@code orderAfter} anywhere.
+ * <p>Attaching it to the Creative Motor would put it directly under Create's own scene in the
+ * index, which is the one place it must not be: Ponder gives no way to show a scene to some
+ * players and not others, so from the moment it existed every player would see a second, complete
+ * version of the machine sitting next to the first one. That is the entire secret, given away on
+ * the index screen before anyone has done anything.
  *
- * <p><b>The schematic is Create's, referenced rather than copied.</b> The storyboard form that
- * takes a scene id string resolves that string to a schematic under this mod's own namespace,
- * which would mean shipping a second copy of the machine. Passing a {@link ResourceLocation}
- * instead points straight at Create's existing {@code create:ponder/creative_motor_mojang}, whose
- * contents are what we want to show anyway - the file holds the complete machine, including the
- * motor that Create's scene never reveals.
+ * <p>Hanging it off this mod's own block makes it gatable - see {@link #indexExclusions}. The
+ * cost is that it is no longer adjacent to the scene it answers, which is a real loss; the scene
+ * has to stand on its own.
+ *
+ * <h2>Gating</h2>
+ *
+ * <p>{@code IndexExclusionHelper} takes a {@code Predicate<ItemLike>}, and those predicates are
+ * evaluated when the index screen is built ({@code PonderIndexScreen.isItemIncluded} streams over
+ * them), not when they are registered. A predicate can therefore read live client state - here,
+ * whether the player has the Enigma advancement - which is what makes gating possible at all.
+ *
+ * <p>Only the <em>item</em> can be hidden, never a single scene; that is why the gate works by
+ * hiding the core rather than by hiding the scene. The consequence is that a player who already
+ * holds an Enigma Core can still ponder it directly even when it is hidden from the index - the
+ * gate is a "don't spoil it" measure, not a lock.
  */
 public class EnigmaPonderPlugin implements PonderPlugin {
 
-    private static final ResourceLocation CREATIVE_MOTOR =
-            ResourceLocation.fromNamespaceAndPath("create", "creative_motor");
+    /** The core's item, which is what our scene hangs off. */
+    private static final ResourceLocation ENIGMA_CORE =
+            ResourceLocation.fromNamespaceAndPath(CreateEnigma.MOD_ID, "enigma_core");
 
+    /**
+     * Create's schematic for the machine.
+     *
+     * <p>Note the path: <b>no {@code ponder/} prefix and no {@code .nbt} suffix.</b> Ponder builds
+     * the real file path itself - {@code <namespace>:ponder/<path>.nbt} - and when it cannot find
+     * the result it logs an error and returns an <em>empty</em> structure template rather than
+     * throwing. Passing the full path therefore produces a scene with nothing in it but the
+     * baseplate, and no visible sign of what went wrong.
+     */
     private static final ResourceLocation MOJANG_SCHEMATIC =
-            ResourceLocation.fromNamespaceAndPath("create", "ponder/creative_motor_mojang");
+            ResourceLocation.fromNamespaceAndPath("create", "creative_motor_mojang");
 
     @Override
     public String getModId() {
@@ -44,6 +63,33 @@ public class EnigmaPonderPlugin implements PonderPlugin {
 
     @Override
     public void registerScenes(PonderSceneRegistrationHelper<ResourceLocation> helper) {
-        helper.addStoryBoard(CREATIVE_MOTOR, MOJANG_SCHEMATIC, EnigmaScenes::firstOfAllMachines);
+        helper.addStoryBoard(ENIGMA_CORE, MOJANG_SCHEMATIC, EnigmaScenes::firstOfAllMachines);
+    }
+
+    @Override
+    public void indexExclusions(IndexExclusionHelper helper) {
+        helper.exclude(item -> isEnigmaCore(item) && !hasWatchedTheEnigma());
+    }
+
+    private static boolean isEnigmaCore(net.minecraft.world.level.ItemLike item) {
+        return item.asItem() == CEBlocks.ENIGMA_CORE.get().asItem();
+    }
+
+    /**
+     * Whether the player has watched Create's scene for this machine.
+     *
+     * <p>The client is the only side that can answer this: Ponder is client-side, and the client
+     * already holds the player's advancement list because the server sends it. No extra state and
+     * no extra packet are needed.
+     *
+     * <p>Never called before a world is loaded - the predicate only runs when the index screen is
+     * opened - so the null checks are for the main-menu edge case rather than for normal play.
+     */
+    private static boolean hasWatchedTheEnigma() {
+        ClientPacketListener connection = Minecraft.getInstance().getConnection();
+        if (connection == null) {
+            return false;
+        }
+        return connection.getAdvancements().get(EnigmaAdvancements.ENIGMA) != null;
     }
 }
