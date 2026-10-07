@@ -360,3 +360,55 @@ git restore .         # 后悔药：把工作区恢复到上次提交
 git config user.name "你的名字"
 git config user.email "你的邮箱"
 ```
+
+---
+
+## 10. 致谢与出处
+
+**这一节是事实陈述与礼节，不是版权声明。** 本模组的代码全部为本项目新写，不包含任何
+第三方的代码或资源副本——因此 `LICENSE` 里只有本项目的版权人。理由见本节末尾。
+
+### 机器布局 —— Mojang
+
+这台机器的方块布局来自 **Mojang 于 2022 年发布的 Java 版宣传片**，用途是展示 Java 版
+拥有良好的模组生态。据了解，搭建者对机械动力并不熟悉，所以成品相当抽象。
+
+### 布局数据来源 —— Create
+
+**Create** 在**创造马达（Creative Motor）**的思索里复刻了这台机器，取名
+**"Mojang's Enigma"**（场景 id `creative_motor_mojang`）。我们是从那份思索的结构文件
+`assets/create/ponder/creative_motor_mojang.nbt` 里读到布局的。
+
+需要说明：**该文件没有被打包进本模组。** 我们只在构建期读取它一次，用
+`tools/PrepareEnigmaStructure.java` 转换成自己的结构模板（并做了若干修改，见第 2 节）。
+本模组分发的是转换后的产物，不是 Create 的文件。
+
+### 贴图 —— 按名引用，未重新分发
+
+方块模型的材质直接引用 Create 的贴图路径（`create:block/andesite_casing`、
+`brass_casing`、`copper_casing`、`industrial_iron_block`），运行时由 Create 提供。
+本模组不包含这些图片文件。
+
+### 与 Mojang 和 Create 团队的关系
+
+**本模组是第三方作品，与 Mojang 和 Create 团队均无隶属、合作或背书关系。**
+两款名称仅用于说明出处。
+
+### 为什么 LICENSE 里只有本项目的版权人
+
+MIT 唯一的附加条件是：
+
+> The above copyright notice and this permission notice shall be included in all
+> copies or substantial portions of the Software.
+
+它的适用对象是**该软件自身的副本**。本模组没有复制任何第三方代码或资源，
+jar 内只有 `com/createenigma`、`assets/create_enigma`、`data/create_enigma` 三类内容，
+所以这条要求**不被触发**——也就没有需要"保留"的第三方声明。
+
+反过来说：把第三方写进自己的版权栏，会把"致谢"变成"权利主张"，
+既可能让人误以为存在共属或背书关系，也会在日后更换许可证时留下说不清的共同持有人。
+**将来若真的复制了第三方代码，正确做法是单独放 `THIRD-PARTY-NOTICES.md`，
+而不是改自己的 LICENSE。**
+
+> 以上为实务惯例层面的说明，不构成法律意见。
+
