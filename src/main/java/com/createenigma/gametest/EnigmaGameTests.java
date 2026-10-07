@@ -3,9 +3,11 @@ package com.createenigma.gametest;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.createenigma.CreateEnigma;
 import com.createenigma.content.EnigmaAdvancements;
 import com.createenigma.content.EnigmaCoreBlock;
 import com.createenigma.registry.CEBlocks;
+import com.createenigma.registry.CEItems;
 import com.createenigma.structure.BlockStateMatcher;
 import com.createenigma.structure.EnigmaStructure;
 import com.createenigma.structure.EnigmaValidator;
@@ -17,8 +19,13 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.RecipeManager;
+import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.SlabBlock;
 import net.minecraft.world.level.block.SnowyDirtBlock;
@@ -178,6 +185,32 @@ public class EnigmaGameTests {
         helper.assertTrue(root.value().criteria().containsKey(EnigmaAdvancements.CRITERION),
                 EnigmaAdvancements.ROOT + " does not declare the criterion '"
                         + EnigmaAdvancements.CRITERION + "'");
+
+        helper.succeed();
+    }
+
+    // --------------------------------------------------------------------------------
+    // The wrench, which so far is only a recipe and a tooltip.
+    //
+    // The tooltip is client-side and cannot be checked here. The recipe can: a malformed one is
+    // logged and then simply absent, so "no error in the log" is not the same as "the recipe is
+    // what we meant". This asserts it loaded, is shaped, and yields this mod's wrench.
+    // --------------------------------------------------------------------------------
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void wrenchRecipeLoadsAndProducesTheWrench(GameTestHelper helper) {
+        RecipeManager recipes = helper.getLevel().getServer().getRecipeManager();
+        ResourceLocation id = ResourceLocation.fromNamespaceAndPath(CreateEnigma.MOD_ID, "enigma_wrench");
+
+        RecipeHolder<?> holder = recipes.byKey(id).orElse(null);
+        helper.assertTrue(holder != null, "recipe " + id + " did not load");
+
+        helper.assertTrue(holder.value() instanceof ShapedRecipe,
+                "expected a shaped recipe, found " + holder.value().getClass().getSimpleName());
+
+        ItemStack result = holder.value().getResultItem(helper.getLevel().registryAccess());
+        helper.assertTrue(result.is(CEItems.ENIGMA_WRENCH.get()),
+                "the recipe produces " + result + " instead of the Enigma Wrench");
 
         helper.succeed();
     }

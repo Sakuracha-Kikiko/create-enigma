@@ -210,7 +210,7 @@ $tc = '..\..\Create Test1\.toolchain'
 & "$tc\gradle\gradle-8.14.2\bin\gradle.bat" --project-dir . --no-daemon --offline runGameTestServer
 ```
 
-`EnigmaGameTests` 有 5 个测试，在真实服务器世界里跑：
+`EnigmaGameTests` 有 6 个测试，在真实服务器世界里跑：
 
 | 测试 | 断言 |
 |---|---|
@@ -218,9 +218,10 @@ $tc = '..\..\Create Test1\.toolchain'
 | `completeMachineAssemblesItsCore` | 用原版结构放置把整台机器搭出来，核心必须在 40 tick 内变成 `assembled=true` |
 | `removingOneBlockDisassemblesIt` | 先确认成型，再挖掉小屋地面的一块台阶，核心必须在 40 tick 内变回 `assembled=false` |
 | `ponderAdvancementLoadsAndDeclaresTheAwardedCriterion` | 两个成就文件都加载成功；子成就的 parent 确实是 root；两者都声明了代码里授予用的那个准则名 |
+| `wrenchRecipeLoadsAndProducesTheWrench` | 扳手配方加载成功、是有序配方、产物确实是本模组的扳手 |
 | `matcherIgnoresDerivedPropertiesButNotRealChanges` | 直接检验**比较策略本身**：`waterlogged`/`snowy`/窗格连接/核心自身的 `assembled` 必须被忽略；台阶 `type`、皮带 `slope`/`part`/`casing`、以及换掉方块本身必须被判为不同 |
 
-**当前状态：5/5 通过。**
+**当前状态：6/6 通过。**
 
 第 1 个测试是**因为踩了坑才补上的**：README 最初把命令写成了 `/place structure`，
 而那个子命令只接受 worldgen 结构，导致结构根本放不出来。放置机制本身当时是验证过的
@@ -584,5 +585,93 @@ Watched create:creative_motor_mojang; asking the server for the advancement
 |---|---|
 | 有 | mixin 生效了，问题在服务端（看有没有 `Enigma advancements are missing` 的报错） |
 | 没有 | mixin 没应用，或场景 id 对不上 |
+
+---
+
+## 12. 神秘扳手（Enigma Wrench）
+
+**目前只是一个物品 + 一条配方 + 一条概要，没有任何功能。** 先做出来是为了看效果。
+
+### 配方
+
+框架和 Create 原版扳手一致，三处不同：
+
+| | Create 原版扳手 | 神秘扳手 |
+|---|---|---|
+| 左上 / 右上 | `c:plates/gold` 金板 | **`c:plates/iron` 铁板** |
+| 右下 | `create:cogwheel` 齿轮 | **`create:large_cogwheel` 大齿轮** |
+| 左下 | `c:rods/wooden` 木棍 | **去掉**（整个第三行没了） |
+
+```
+GG        G = 铁板
+GP        P = 大齿轮
+```
+
+### 概要
+
+按住 Shift 显示（不按则显示 Create 原生的 `按住 [Shift] 查看概要`）：
+
+```
+用于调试[神秘机械]的多功能工具…？      ← 方括号里那四个字是乱码
+调试啥你倒是说啊                      ← 深灰 + 删除线
+```
+
+### 乱码效果是怎么实现的
+
+**就是 `§k`（`ChatFormatting.OBFUSCATED`）。** 原版终末之诗用的也是这个：
+
+* 文本里本该是某个词的位置写着 `§f§k§a§b`，加载时被换成 **3–6 个字面量 `X`**
+  （`WinScreen.addPoemFile:180`，随机种子写死，所以每次字数一样）
+* 渲染时，凡是带混淆样式的字符**且不是空格**，就**换成一个等宽的随机字形**
+  （`Font.java:411` → `FontSet.getRandomGlyph`）
+* **等宽**这点很关键——乱码不会让版面抖动。而随机源是共享的，**每帧重掷**，所以会闪
+
+所以那些 `X` 只是占位符，永远不会被真的画出来；随便什么非空格字符都行。
+
+这里没有照抄原版那套"占位记号 + 加载时替换"，而是直接给组件加混淆样式：
+
+```java
+Component.translatable("create_enigma.enigma_wrench.subject")
+        .withStyle(ChatFormatting.OBFUSCATED)
+```
+
+### 为什么不用 Create 的 `ItemDescription`
+
+Create 有一套现成的"按住 Shift 显示概要"系统，但**它的文本在注册时就定死了**
+（`ItemDescription.create` 读语言文件 → 构建成固定的组件列表）。
+
+而这条路以后要走的方向是"**现在乱码，满足某个条件后显示真名**"——静态文本做不到。
+所以概要由本模组自己在 `ItemTooltipEvent` 里构建：**每次悬停现算**。
+
+从 Create 那里只借了**措辞**（`create.tooltip.holdForDescription` 和 `create.tooltip.keyShift`
+两个语言键），这样那行提示和 Create 其它物品一字不差，但不依赖它的内部枚举。
+
+### 这个位置比进度标题合适得多
+
+| | 进度标题 | 物品概要 |
+|---|---|---|
+| 何时生成 | 数据包加载时**烘死** | **每次悬停现算** |
+| 能否运行时改变 | ❌ 只能等 `/reload` | ✅ **立刻生效** |
+
+而且**不需要任何额外联网**：客户端本来就知道玩家有哪些进度——
+
+```java
+ClientAdvancements adv = Minecraft.getInstance().getConnection().getAdvancements();
+boolean revealed = adv.get(EnigmaAdvancements.ENIGMA) != null;
+```
+
+因为服务端只会把"对玩家可见"的进度发给客户端，所以这个判断就是"玩家是否已经拿到它"。
+
+> ⚠️ 该判断的语义是"**可见**"而非严格"已完成"。服务端用 `AdvancementVisibilityEvaluator`
+> 决定发什么——一个进度在自己**或某个子进度**完成时变可见。`enigma` 是叶子节点，两者等价；
+> 但以后给它加了子节点，这个判断会提前变 true。
+
+### 未验证项
+
+* **概要的实际观感未经自动化验证。** `ItemTooltipEvent` 是纯客户端渲染路径，GameTest 够不到。
+  已核对的是：物品与配方加载成功、配方产物确实是本模组的扳手（有测试断言）、
+  模型父级 `create:item/wrench` 存在、`§k` 的渲染路径已从源码确认。
+* **物品模型借用了 Create 的扳手模型**（`create:item/wrench`）。所以在背包里
+  **它和 Create 原版扳手长得一模一样**——这是占位，随时要换。
 
 

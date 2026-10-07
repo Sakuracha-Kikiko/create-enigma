@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "G": {
+      "tag": "c:plates/iron"
+    },
+    "P": {
+      "item": "create:large_cogwheel"
+    }
+  },
+  "pattern": [
+    "GG",
+    "GP"
+  ],
+  "result": {
+    "count": 1,
+    "id": "create_enigma:enigma_wrench"
+  }
+}

@@ -24,7 +24,10 @@ public class CECreativeTabs {
             () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.create_enigma.base"))
                     .icon(() -> CEBlocks.ENIGMA_CORE.asStack())
-                    .displayItems((parameters, output) -> output.accept(CEBlocks.ENIGMA_CORE.asItem()))
+                    .displayItems((parameters, output) -> {
+                        output.accept(CEBlocks.ENIGMA_CORE.asItem());
+                        output.accept(CEItems.ENIGMA_WRENCH.asItem());
+                    })
                     .build());
 
     public static void register(IEventBus modBus) {
