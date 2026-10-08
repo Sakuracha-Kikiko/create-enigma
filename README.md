@@ -810,6 +810,34 @@ PonderIndex.getTagAccess().getItems(tag).stream()   // ← 物品来自"显式�
 **一个没有任何标签的思索物品，没有地方可以待。** 所以之前两轮排查（图纸路径、注册时序、
 索引过滤器）全都在错误的方向上——**场景一直是注册成功的，缺的是归档。**
 
+#### ⚠️ 但"注册标签"和"把物品放进去"是两件事
+
+**这是第二个坑，而且更隐蔽。** 下面两种写法**看起来**都能把物品归入标签，**其实都不能**：
+
+```java
+// ✗ 只是设图标
+helper.registerTag(TAG).addToIndex().item(CORE, true, false).title(...).description(...).register();
+
+// ✗ 那个可变参数是"高亮标签"，给界面用的，不进注册表
+helper.addStoryBoard(CORE, SCHEMATIC, Board::build, TAG);
+```
+
+**真正归档的只有 `addTagToComponent(component, tag)`**，用建造器写就是：
+
+```java
+helper.addToTag(TAG).add(CORE);          // ✓ 这一句才是归档
+```
+
+原因在 `PonderTagRegistry`：标签的物品来自 `componentTagMap`，而这个映射**只有**
+`addTagToComponent` 会写。判断依据是两条字节码事实：
+
+* `TagBuilder.item(ItemLike, boolean, boolean)` 只有两个 `putfield`（`itemIcon` / `mainItem`），
+  **没有任何写映射的动作**
+* `addTagToComponent` 的调用者列表里**没有 `PonderSceneRegistry`**——所以场景注册时的标签参数
+  帮不上忙
+
+Create 自己的写法也是 `HELPER.addToTag(TAG).add(...)`。
+
 **本模组以后所有思索都放在 `create_enigma:enigma` 这一个标签下**，让整个模组读起来是
 一章，而不是散落在 Create 各个分类里的零散条目。
 

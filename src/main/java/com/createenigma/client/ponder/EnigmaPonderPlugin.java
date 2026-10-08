@@ -81,12 +81,23 @@ public class EnigmaPonderPlugin implements PonderPlugin {
         if (!EnigmaPonderUnlockWatcher.isUnlocked()) {
             return;
         }
+        // Registering the tag only creates the chapter - it files nothing.
         helper.registerTag(ENIGMA_TAG)
                 .addToIndex()
                 .item(CEBlocks.ENIGMA_CORE.get(), true, false)
                 .title("神秘机械")
                 .description("源初的万机之神，我祈求您降下您的目光")
                 .register();
+
+        // This is what actually puts the core in the chapter.
+        //
+        // Two things that look like they would do it, and do not:
+        //   TagBuilder.item(item, icon, main) - sets the tag's icon items and nothing else
+        //   addStoryBoard(..., tag)           - that vararg is a UI highlight tag
+        // Neither touches the registry's component-to-tag map, which is what the tag screen
+        // reads. Only addTagToComponent - reached here through the addToTag(...).add(...)
+        // builder - puts an item under a tag.
+        helper.addToTag(ENIGMA_TAG).add(ENIGMA_CORE);
     }
 
     @Override
