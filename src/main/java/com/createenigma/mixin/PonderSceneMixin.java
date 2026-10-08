@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Reports that the player watched Mojang's Enigma to the end.
+ * Reports every ponder scene the player watches to the end, and which scene it was.
  *
  * <p><b>Client only</b> - it is in the {@code client} list of the mixin config. Ponder plays
  * entirely on the client, and {@link PacketDistributor#sendToServer} only exists there.
@@ -25,14 +25,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * like the obvious hook, and it is the wrong one: it is only ever called by
  * {@code MarkAsFinishedInstruction}, and {@code creativeMotorMojang} is the one scene in
  * {@code KineticsScenes} that never calls {@code markAsFinished()}. Its {@code isFinished()} stays
- * false forever, so an injection there would compile, apply, and silently never fire. The scene
- * does still advance its clock, so completion is observed through
- * {@code getSceneProgress() == 1.0} instead.
+ * false forever, so an injection there would compile, apply, and silently never fire - and it would
+ * have looked correct for every <em>other</em> scene, which is worse. Completion is observed
+ * through {@code getSceneProgress() == 1.0} instead, which is right for all of them.
  *
  * <p>{@code PonderUI} also has a progress bar and a public {@code seekToTime}, so a player can drag
  * to the end rather than watching. That is accepted: the alternative is tracking playback in a way
- * the UI does not expose, for an advancement that is cosmetic. Noted so nobody later mistakes this
- * for proof that the scene was actually watched.
+ * the UI does not expose, for advancements that are cosmetic. Noted so nobody later mistakes this
+ * for proof that a scene was actually watched.
  */
 @Mixin(PonderScene.class)
 public abstract class PonderSceneMixin {
@@ -50,27 +50,28 @@ public abstract class PonderSceneMixin {
     private boolean create_enigma$reported;
 
     @Inject(method = "tick", at = @At("TAIL"))
-    private void create_enigma$reportWatchedEnigma(CallbackInfo ci) {
+    private void create_enigma$reportWatchedScene(CallbackInfo ci) {
         if (create_enigma$reported) {
-            return;
-        }
-        if (!EnigmaPonderWatched.ENIGMA_SCENE.equals(this.getId())) {
             return;
         }
         if (this.getSceneProgress() < 1.0F) {
             return;
         }
 
-        // Once per scene instance. The scene can be replayed (which resets progress), but a
-        // replay has nothing new to report, and the award itself is idempotent server-side.
+        // Once per scene instance. A scene can be replayed (which resets progress), but a replay
+        // has nothing new to report, and the awards themselves are idempotent server-side.
         create_enigma$reported = true;
+
+        ResourceLocation id = this.getId();
+        if (id == null) {
+            return;
+        }
 
         // Logged because this is the one step no automated test can reach: it only runs on a
         // client, and a mixin that failed to apply would otherwise be indistinguishable from a
-        // player who simply never watched the scene.
-        CREATE_ENIGMA$LOGGER.info("Watched {}; asking the server for the advancement",
-                EnigmaPonderWatched.ENIGMA_SCENE);
+        // player who simply never watched anything.
+        CREATE_ENIGMA$LOGGER.info("Watched ponder scene {}; reporting it", id);
 
-        PacketDistributor.sendToServer(EnigmaPonderWatched.INSTANCE);
+        PacketDistributor.sendToServer(new EnigmaPonderWatched(id));
     }
 }

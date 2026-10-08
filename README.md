@@ -560,16 +560,34 @@ jar 内只有 `com/createenigma`、`assets/create_enigma`、`data/create_enigma`
 
 ## 11. 进度（成就）
 
-**看完「Mojang 的神秘机械」这个思索，会解锁一个进度。** 这是本模组所有神秘内容的开端。
+**看完任意思索会解锁第一个进度；看完「Mojang 的神秘机械」再解锁第二个。**
+这是本模组所有神秘内容的开端。
 
-| | |
-|---|---|
-| 标签页 | 「欢迎来到机械动力…？」（root，`create_enigma:root`） |
-| 进度 | 「Enigma」（`create_enigma:enigma`），**刻意不做本地化** |
-| 描述 | 「jang工mo械由此开始」 |
-| 种类 | `task`（普通进度）。想改成 `goal`/`challenge` 就改 `enigma.json` 里的 `frame` |
-| 图标 | 谜之核心（占位，随时可换） |
-| 背景 | `minecraft:textures/gui/advancements/backgrounds/end.png` |
+| | 标签页 | 俺寻思之力 | Enigma |
+|---|---|---|---|
+| id | `create_enigma:root` | `create_enigma:ponder_watched` | `create_enigma:enigma` |
+| 触发 | 不可触发（只是容器） | **看完任意思索** | 看完 `create:creative_motor_mojang` |
+| 图标 | 谜之核心 | **`create:goggles`**（工程师护目镜） | 谜之核心 |
+| 描述 | ……你确定这是机械动力吗？ | jang工mo械由此开始 | 神秘学…它赋予世间某种秩序以成就奇迹，令人感知它的存在，并为之惊叹不已 |
+| 种类 | — | `task` | `task` |
+| 背景 | `minecraft:.../backgrounds/end.png` | — | — |
+
+### ⚠️ 三个进度是**一条链**，不是三个兄弟
+
+```
+root ──► ponder_watched ──► enigma
+```
+
+**这不是解锁顺序**——进度由代码授予，父节点从不限制任何东西。**这是为了排版。**
+
+`TreeNodePosition` 排布子节点时直接遍历 `AdvancementNode.children()`，而那是
+**`ReferenceOpenHashSet`**——按**对象身份哈希**的无序集合。所以：
+
+> **同一层的进度谁在前谁在后，数据包控制不了，而且每次启动都可能不一样。**
+
+把 `ponder_watched` 和 `enigma` 都挂在 root 下面，两者会**随机换位**；连成一条链则只有一种排法。
+`EnigmaGameTests` 里有断言盯着这两条父子链接——链接断了进度照样发放，只是显示在错的地方，
+没有测试根本看不出来。
 
 ### 不要在标题/描述里写 `color`
 

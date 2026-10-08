@@ -1,5 +1,5 @@
 {
-  "parent": "create_enigma:ponder_watched",
+  "parent": "create_enigma:root",
   "criteria": {
     "impossible": {
       "trigger": "minecraft:impossible"
@@ -8,16 +8,16 @@
   "display": {
     "announce_to_chat": true,
     "description": {
-      "text": "神秘学…它赋予世间某种秩序以成就奇迹，令人感知它的存在，并为之惊叹不已"
+      "text": "jang工mo械由此开始"
     },
     "frame": "task",
     "hidden": true,
     "icon": {
       "count": 1,
-      "id": "create_enigma:enigma_core"
+      "id": "create:goggles"
     },
     "title": {
-      "text": "Enigma"
+      "text": "俺寻思之力"
     }
   },
   "requirements": [

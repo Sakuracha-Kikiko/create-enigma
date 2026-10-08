@@ -166,27 +166,36 @@ public class EnigmaGameTests {
         MinecraftServer server = helper.getLevel().getServer();
 
         AdvancementHolder root = server.getAdvancements().get(EnigmaAdvancements.ROOT);
+        AdvancementHolder watched = server.getAdvancements().get(EnigmaAdvancements.PONDER_WATCHED);
         AdvancementHolder enigma = server.getAdvancements().get(EnigmaAdvancements.ENIGMA);
         helper.assertTrue(root != null, "advancement " + EnigmaAdvancements.ROOT + " did not load");
+        helper.assertTrue(watched != null,
+                "advancement " + EnigmaAdvancements.PONDER_WATCHED + " did not load");
         helper.assertTrue(enigma != null, "advancement " + EnigmaAdvancements.ENIGMA + " did not load");
         helper.assertTrue(root.value().isRoot(), EnigmaAdvancements.ROOT + " is not a root advancement");
 
-        // The root is what creates the tab. If the parent link were wrong the advancement would
-        // still be granted but would be displayed nowhere - a failure nothing else would catch.
-        helper.assertTrue(enigma.value().parent().isPresent()
-                        && enigma.value().parent().get().equals(EnigmaAdvancements.ROOT),
-                EnigmaAdvancements.ENIGMA + " does not declare " + EnigmaAdvancements.ROOT + " as its parent");
+        // The chain is what fixes the display order. Siblings under one parent are laid out in the
+        // iteration order of an identity hash set, so two children of the root would swap places
+        // between launches; root -> watched -> enigma has only one order. If either link broke,
+        // the advancement would still be granted and simply displayed in the wrong place.
+        assertParent(helper, watched, EnigmaAdvancements.ROOT);
+        assertParent(helper, enigma, EnigmaAdvancements.PONDER_WATCHED);
 
         // award() returns false for an unknown criterion rather than throwing, so this is the
         // assertion that stands between a typo and a feature that silently never appears.
-        helper.assertTrue(enigma.value().criteria().containsKey(EnigmaAdvancements.CRITERION),
-                EnigmaAdvancements.ENIGMA + " does not declare the criterion '"
-                        + EnigmaAdvancements.CRITERION + "'; it declares " + enigma.value().criteria().keySet());
-        helper.assertTrue(root.value().criteria().containsKey(EnigmaAdvancements.CRITERION),
-                EnigmaAdvancements.ROOT + " does not declare the criterion '"
-                        + EnigmaAdvancements.CRITERION + "'");
+        for (AdvancementHolder holder : new AdvancementHolder[] {root, watched, enigma}) {
+            helper.assertTrue(holder.value().criteria().containsKey(EnigmaAdvancements.CRITERION),
+                    "an advancement does not declare the criterion '" + EnigmaAdvancements.CRITERION
+                            + "'; it declares " + holder.value().criteria().keySet());
+        }
 
         helper.succeed();
+    }
+
+    private static void assertParent(GameTestHelper helper, AdvancementHolder child, ResourceLocation parent) {
+        helper.assertTrue(child.value().parent().isPresent()
+                        && child.value().parent().get().equals(parent),
+                child.id() + " does not declare " + parent + " as its parent");
     }
 
     // --------------------------------------------------------------------------------
