@@ -982,4 +982,77 @@ Ponder 里**无法替换或移除已注册的场景**，这是查证过的：
 * **门槛条件是占位的**（"玩家已获得 `enigma` 进度"）。按设计这一步应该更靠后，
   条件随时可以换成别的。
 
+---
+
+## 14. 伪装创造马达（Disguised Creative Motor）
+
+**用途：让玩家能在生存模式里搭起那台机器。** 原机器需要 **7 台创造马达**，
+而创造马达是创造模式专属——所以生存玩家永远搭不出来。这是一个**自举问题**。
+
+| | |
+|---|---|
+| 行为 | **和创造马达完全一样**：转速可调（±256）、方向可调、面板可用、会转 |
+| 应力 | **1 SU/RPM**（创造马达是 16384） |
+| 外观 | **和创造马达逐像素一样**——方块状态直接指向 Create 自己的模型 |
+| 概要 | 按住 Shift：「俺寻思这是创造马达」 |
+| 配方 | 安山岩机壳 + 品红色染料（**占位，见下**） |
+
+### 为什么是"镜像"而不是"继承"
+
+`CreativeMotorBlock` 里写着 `implements IBE<CreativeMotorBlockEntity>`，而
+`getBlockEntityClass()` 返回 `Class<CreativeMotorBlockEntity>`。**子类没法把它收窄成自己的
+方块实体类型**——泛型不协变——所以继承它只能保留 Create 的方块实体。抄那六个小覆盖更省事。
+
+方块实体那一层是**真的继承**（`extends CreativeMotorBlockEntity`），所以转速面板、
+网络行为、渲染全部白拿。
+
+### 两处 Create 写死的地方，都必须绕
+
+**① `getGeneratedSpeed()` 写死了方块类型：**
+
+```java
+// Create 的实现
+public float getGeneratedSpeed() {
+    if (!AllBlocks.CREATIVE_MOTOR.has(getBlockState()))
+        return 0;                       // ← 伪装马达会被判成永远不转
+    ...
+}
+```
+
+**② `CStress.setCapacity` 拒绝别的模组：**
+
+```java
+private static void assertFromCreate(BlockBuilder<?, ?> builder) {
+    if (!builder.getOwner().getModid().equals(Create.ID))
+        throw new IllegalStateException("Non-Create blocks cannot be added to Create's config.");
+}
+```
+
+所以**应力不能走 Create 的配置系统**，改在方块实体里覆盖
+`calculateAddedStressCapacity()`——那是 `KineticBlockEntity` 的方法，可以正常覆盖。
+
+> 覆盖时**必须同时写 `lastCapacityProvided`**：基类也写它，而且它会被写进网络标签、
+> 推给动力网络。只 `return` 不赋值会让两边不一致。
+
+### 一个必须用对属性实例的细节
+
+`CreativeMotorBlockEntity` 里那个转速面板读的是
+`state.getValue(CreativeMotorBlock.FACING)`。所以我们的方块**必须用同一个属性实例**，
+否则会抛异常。好在 `DirectionalKineticBlock.FACING` 就是
+`BlockStateProperties.FACING` 本身——单例，所以两边拿到的是同一个对象。
+
+### 配方是**占位的**
+
+「安山岩机壳 + 品红色染料」是我替你想的（"把机壳刷成创造马达的颜色"）。
+**没有和你确认过**，改起来就是一个 JSON。它便宜是故意的——要 7 个，
+而且这一步的作用是**解锁搭建**，不该变成第二道资源门槛。
+
+### 未验证项
+
+* **渲染是纯客户端的，没有自动化验证。** `.renderer(...)` 和 `.visual(...)` 服务端不加载。
+  已核对的是三个借用的类（`CreativeMotorRenderer`、`OrientedRotatingVisual`、
+  `AllPartialModels.SHAFT_HALF`）都是 public、签名匹配、编译通过。
+* **判定还没接受它。** 现在机器仍然只认真正的创造马达——这是下一步（让判定"同一位置接受
+  两种方块"）。所以**这个方块目前还不能用来搭那台机器**。
+
 

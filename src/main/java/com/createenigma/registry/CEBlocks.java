@@ -2,13 +2,17 @@ package com.createenigma.registry;
 
 import static com.simibubi.create.foundation.data.ModelGen.customItemModel;
 import static com.simibubi.create.foundation.data.TagGen.axeOrPickaxe;
+import static com.simibubi.create.foundation.data.TagGen.pickaxeOnly;
 
 import com.createenigma.CreateEnigma;
+import com.createenigma.content.DisguisedMotorBlock;
 import com.createenigma.content.EnigmaCoreBlock;
+import com.simibubi.create.api.stress.BlockStressValues;
 import com.simibubi.create.foundation.data.SharedProperties;
 import com.tterrag.registrate.util.entry.BlockEntry;
 
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.world.item.Rarity;
 import net.minecraft.world.level.material.MapColor;
 
 /**
@@ -45,6 +49,30 @@ public class CEBlocks {
                     .addLayer(() -> RenderType::cutoutMipped)
                     .transform(axeOrPickaxe())
                     .item()
+                    .transform(customItemModel())
+                    .register();
+
+    /**
+     * 伪装创造马达 / Disguised Creative Motor
+     *
+     * <p>Registered to look and behave like Create's Creative Motor, because the whole point is that
+     * it cannot be told apart. That means borrowing from Create wherever Create owns the appearance:
+     * the blockstate points at Create's models, the renderer and Flywheel visual are Create's, and
+     * the item rarity is mirrored too (EPIC, which is what gives the real one its purple name).
+     *
+     * <p><b>The one thing not copied is the stress capacity transform.</b> Create's
+     * {@code CStress.setCapacity} throws for blocks that are not Create's own, so the capacity is
+     * supplied by the block entity instead - see {@code DisguisedMotorBlockEntity}.
+     */
+    public static final BlockEntry<DisguisedMotorBlock> DISGUISED_MOTOR =
+            CreateEnigma.registrate().block("disguised_motor", DisguisedMotorBlock::new)
+                    .initialProperties(SharedProperties::stone)
+                    .properties(p -> p.mapColor(MapColor.COLOR_PURPLE)
+                            .forceSolidOn())
+                    .transform(pickaxeOnly())
+                    .onRegister(BlockStressValues.setGeneratorSpeed(256, true))
+                    .item()
+                    .properties(p -> p.rarity(Rarity.EPIC))
                     .transform(customItemModel())
                     .register();
 

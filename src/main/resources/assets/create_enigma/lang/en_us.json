@@ -1,6 +1,8 @@
 {
   "itemGroup.create_enigma.base": "Create: Enigma",
   "block.create_enigma.enigma_core": "Enigma Core",
+  "block.create_enigma.disguised_motor": "Disguised Creative Motor",
+  "create_enigma.disguised_motor.summary": "I reckon this is a Creative Motor",
   "item.create_enigma.enigma_wrench": "Enigma Wrench",
   "create_enigma.enigma_core.formed": "The Enigma is assembled.",
   "create_enigma.enigma_core.unformed": "Enigma incomplete - (%s, %s, %s) %s",

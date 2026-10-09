@@ -50,7 +50,7 @@ public final class EnigmaWrenchTooltip {
         // Create's own summary layout, and both are about the tooltip not moving: the hint is the
         // first line either way, so pressing Shift only appends below it instead of reflowing the
         // box, and there is no blank between the mod name and the hint when collapsed.
-        tooltip.add(holdShiftForSummary());
+        tooltip.add(SummaryTooltips.holdShift());
         if (Screen.hasShiftDown()) {
             tooltip.add(Component.empty());
             tooltip.add(summary());
@@ -70,15 +70,5 @@ public final class EnigmaWrenchTooltip {
     private static Component aside() {
         return Component.translatable("create_enigma.enigma_wrench.aside")
                 .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.STRIKETHROUGH);
-    }
-
-    /**
-     * Byte-for-byte what {@code TooltipHelper.holdShift} produces, rebuilt here from Create's two
-     * language keys so this mod does not depend on Create's palette enum to say four words.
-     */
-    private static Component holdShiftForSummary() {
-        return Component.translatable("create.tooltip.holdForDescription",
-                        Component.translatable("create.tooltip.keyShift").withStyle(ChatFormatting.GRAY))
-                .withStyle(ChatFormatting.DARK_GRAY);
     }
 }

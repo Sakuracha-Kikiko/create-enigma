@@ -26,6 +26,7 @@ public class CECreativeTabs {
                     .icon(() -> CEBlocks.ENIGMA_CORE.asStack())
                     .displayItems((parameters, output) -> {
                         output.accept(CEBlocks.ENIGMA_CORE.asItem());
+                        output.accept(CEBlocks.DISGUISED_MOTOR.asItem());
                         output.accept(CEItems.ENIGMA_WRENCH.asItem());
                     })
                     .build());

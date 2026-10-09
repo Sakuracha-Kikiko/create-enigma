@@ -1,6 +1,8 @@
 {
   "itemGroup.create_enigma.base": "机械动力：神秘机械",
   "block.create_enigma.enigma_core": "谜之核心",
+  "block.create_enigma.disguised_motor": "伪装创造马达",
+  "create_enigma.disguised_motor.summary": "俺寻思这是创造马达",
   "item.create_enigma.enigma_wrench": "神秘扳手",
   "create_enigma.enigma_core.formed": "神秘机械已成型。",
   "create_enigma.enigma_core.unformed": "神秘机械不完整 - (%s, %s, %s) %s",
