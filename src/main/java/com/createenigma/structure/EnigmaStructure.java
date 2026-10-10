@@ -22,6 +22,7 @@ import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
@@ -89,6 +90,63 @@ public final class EnigmaStructure {
      */
     public BlockPos originFor(BlockPos corePos) {
         return corePos.subtract(coreOffset);
+    }
+
+    /**
+     * Where a template offset ends up once the machine is turned.
+     *
+     * <p><b>Rotation is around the core, not around the template's corner.</b> The core is the only
+     * thing that identifies the machine, so the machine has to be free to turn while the core stays
+     * put. Rotating the raw template offsets instead would move the core, and since the core is at
+     * (7, 2, 8) in a 15-wide box - centred in x but one off in z - every rotation would put it
+     * somewhere else, and the anchor would have to move with it.
+     *
+     * <p>The core maps to itself under every rotation, so {@link #originFor} needs no rotation
+     * parameter and stays a plain subtraction.
+     *
+     * <p><b>The signs follow vanilla's convention, and that matters.</b>
+     * {@code Rotation.CLOCKWISE_90.rotate(Direction.NORTH)} is {@code EAST}, so a northward step is
+     * {@code (0, -1)} in x/z and becomes {@code (1, 0)}:
+     *
+     * <pre>
+     * CLOCKWISE_90         (x, z) -&gt; (-z,  x)
+     * CLOCKWISE_180        (x, z) -&gt; (-x, -z)
+     * COUNTERCLOCKWISE_90  (x, z) -&gt; ( z, -x)
+     * </pre>
+     *
+     * Getting these backwards would not fail loudly: a machine placed turned one way would simply
+     * never be recognised. {@code rotatedPlacementIsRecognised} is the test that pins it down.
+     */
+    public BlockPos offsetFor(BlockPos templateOffset, Rotation rotation) {
+        if (rotation == Rotation.NONE) {
+            return templateOffset;
+        }
+
+        int x = templateOffset.getX() - coreOffset.getX();
+        int z = templateOffset.getZ() - coreOffset.getZ();
+
+        int rx;
+        int rz;
+        switch (rotation) {
+            case CLOCKWISE_90 -> {
+                rx = -z;
+                rz = x;
+            }
+            case CLOCKWISE_180 -> {
+                rx = -x;
+                rz = -z;
+            }
+            case COUNTERCLOCKWISE_90 -> {
+                rx = z;
+                rz = -x;
+            }
+            default -> {
+                rx = x;
+                rz = z;
+            }
+        }
+
+        return new BlockPos(coreOffset.getX() + rx, templateOffset.getY(), coreOffset.getZ() + rz);
     }
 
     /** Loads on first use. Returns null - and logs once - if the template cannot be read. */

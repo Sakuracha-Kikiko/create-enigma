@@ -27,6 +27,7 @@ import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.SlabBlock;
 import net.minecraft.world.level.block.SnowyDirtBlock;
 import net.minecraft.world.level.block.state.BlockState;
@@ -78,6 +79,64 @@ public class EnigmaGameTests {
             BlockState core = helper.getBlockState(CORE);
             helper.assertTrue(core.getValue(EnigmaCoreBlock.ASSEMBLED),
                     "core did not assemble; validator says: " + describe(helper));
+            helper.succeed();
+        });
+    }
+
+    // --------------------------------------------------------------------------------
+    // Rotation.
+    //
+    // This is the test that matters for the turning support, and it is not about tidiness: the
+    // offsets in EnigmaStructure.offsetFor are hand-written sign flips that have to agree with
+    // vanilla's own rotation convention. Get one backwards and nothing fails loudly - a machine
+    // placed turned one way simply never assembles. Placing through vanilla and then validating
+    // through our own maths is what forces the two to agree.
+    //
+    // All three non-trivial orientations are checked, not just one: 90 and 270 are the pair most
+    // likely to be swapped, and 180 would still pass if the two were.
+    // --------------------------------------------------------------------------------
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 400)
+    public static void turnedMachinesAreRecognised(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos core = helper.absolutePos(CORE);
+
+        helper.assertTrue(EnigmaValidator.place(level, core, Rotation.CLOCKWISE_90),
+                "the structure template could not be placed turned 90 degrees");
+
+        helper.runAfterDelay(SETTLE_TICKS, () -> {
+            helper.assertTrue(helper.getBlockState(CORE).getValue(EnigmaCoreBlock.ASSEMBLED),
+                    "a machine turned 90 degrees was not recognised; validator says: " + describe(helper));
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 400)
+    public static void machinesTurnedUpsideDownInPlanAreRecognised(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos core = helper.absolutePos(CORE);
+
+        helper.assertTrue(EnigmaValidator.place(level, core, Rotation.CLOCKWISE_180),
+                "the structure template could not be placed turned 180 degrees");
+
+        helper.runAfterDelay(SETTLE_TICKS, () -> {
+            helper.assertTrue(helper.getBlockState(CORE).getValue(EnigmaCoreBlock.ASSEMBLED),
+                    "a machine turned 180 degrees was not recognised; validator says: " + describe(helper));
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 400)
+    public static void machinesTurnedCounterclockwiseAreRecognised(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos core = helper.absolutePos(CORE);
+
+        helper.assertTrue(EnigmaValidator.place(level, core, Rotation.COUNTERCLOCKWISE_90),
+                "the structure template could not be placed turned 270 degrees");
+
+        helper.runAfterDelay(SETTLE_TICKS, () -> {
+            helper.assertTrue(helper.getBlockState(CORE).getValue(EnigmaCoreBlock.ASSEMBLED),
+                    "a machine turned 270 degrees was not recognised; validator says: " + describe(helper));
             helper.succeed();
         });
     }

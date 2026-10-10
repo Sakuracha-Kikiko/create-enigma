@@ -255,6 +255,57 @@ $tc = '..\..\Create Test1\.toolchain'
 `src/main/resources`。产出的 jar 里 `build/generated/resources` 是空的，
 不存在生成文件与手写文件冲突的可能。物品模型是 `models/item/enigma_core.json`（3 行）。
 
+### 支持水平旋转（四个朝向都认）
+
+机器是**15×4×15，水平方向正方形**，所以四个朝向在尺寸上都成立。玩家绕一圈发现只有另一个
+朝向放得下，是很正常的事——所以判定会**逐个朝向试**，任一完整匹配就算成型。
+
+**这主要是为了避免误导，不只是为了方便。** 不支持的后果不是"没建成"，而是核心报出
+一个**和玩家实际搭建完全对不上的坐标**——那条精心设计的诊断信息会变成噪音，
+而且恰好是在最需要它的时候。
+
+三处改动：
+
+| | |
+|---|---|
+| `EnigmaStructure.offsetFor(offset, rotation)` | 把模板偏移转到旋转后的位置 |
+| `EnigmaValidator.validate` | 四个朝向依次试，先试 `NONE` |
+| `EnigmaValidator.place(level, core, rotation)` | 放置时带上旋转 |
+
+**旋转是绕核心，不是绕模板角。** 核心是识别这台机器的唯一锚点，所以它必须**转的时候不动**。
+绕模板角转会把核心挪走——而核心在 `(7,2,8)`（x 居中、**z 偏 1**），每个朝向都会把它送到
+不同的地方，锚点就没了。
+
+**⚠️ 这里有一个必须成对出现的设置：**
+
+```java
+// 放置：原版默认绕 BlockPos.ZERO 转，必须显式设支点
+new StructurePlaceSettings().setRotation(rotation)
+                            .setRotationPivot(structure.coreOffset());
+
+// 判定：自己的数学，绕核心
+origin.offset(structure.offsetFor(entry.offset(), rotation));
+```
+
+**这两边必须完全一致。** 核心是旋转的不动点，所以 `origin = corePos - coreOffset`
+这个式子对四个朝向都成立，不需要额外的支点运算。
+
+**符号约定**（从原版 `StructureTemplate.transform` 反推）：
+
+```
+CLOCKWISE_90         (x, z) → (-z,  x)
+CLOCKWISE_180        (x, z) → (-x, -z)
+COUNTERCLOCKWISE_90  (x, z) → ( z, -x)
+```
+
+**这个符号搞反了不会报错**——转过的机器只是永远认不出来。所以有三个测试
+（90°/180°/270°）**通过原版放置、再通过我们自己的数学判定**，逼两边保持一致。
+
+> 那个 bug 真的发生过一次，而且是被测试抓住的：漏了 `setRotationPivot` 时，
+> 核心被转到了别处，测试报的是
+> `Cannot get property BooleanProperty{name=assembled} as it does not exist in Block{minecraft:air}`
+> ——**核心位置上什么都没有了**。如果只靠肉眼验证，这个会很晚才发现。
+
 ---
 
 ## 4. 测试
