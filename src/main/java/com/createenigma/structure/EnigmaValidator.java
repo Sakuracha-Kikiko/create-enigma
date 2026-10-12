@@ -237,6 +237,79 @@ public final class EnigmaValidator {
     }
 
     /**
+     * How far the machine has been taken, as opposed to whether it works at all.
+     *
+     * <p>All three layers are working machines; they differ in what is turning them. The base
+     * machine needs six motors and will run on disguised ones, so the first layer is reachable in
+     * survival - which is the point, since the machine is what produces the real motors that the
+     * later layers need.
+     */
+    public enum Layer {
+        /** Six motors, at least one of them disguised. What a survival player can build today. */
+        LOW,
+        /** Six real Creative Motors, and the position the ponder never showed still empty. */
+        MIDDLE,
+        /** All seven real. The machine as it was originally built. */
+        HIGH
+    }
+
+    /**
+     * Classifies the motors that are actually installed.
+     *
+     * <p>The seven positions are not hardcoded: they are read from the complete template, so if the
+     * template ever changes this follows it rather than going quietly wrong.
+     *
+     * <p>Every orientation is tried and the one holding the most motors wins, so a turned machine
+     * is classified by what is in it rather than by where the checker happens to be looking. Only
+     * seven positions are read per pass, so this is cheap enough to do on demand.
+     *
+     * <p>Nothing is concluded from unloaded positions - a chunk that is not loaded reads as
+     * "motor absent", which can only under-report the layer, never invent one.
+     */
+    public static Layer layer(Level level, BlockPos anchorPos, EnigmaStructure structure) {
+        BlockPos origin = structure.originFor(anchorPos);
+
+        int bestReal = -1;
+        int bestPresent = -1;
+
+        for (Rotation rotation : ORIENTATIONS) {
+            int real = 0;
+            int present = 0;
+
+            for (EnigmaStructure.Entry entry : structure.entries()) {
+                if (!isMotor(entry.state())) {
+                    continue;
+                }
+                BlockPos pos = origin.offset(structure.offsetFor(entry.offset(), rotation));
+                if (!level.isLoaded(pos)) {
+                    continue;
+                }
+
+                BlockState actual = level.getBlockState(pos);
+                if (actual.is(AllBlocks.CREATIVE_MOTOR.get())) {
+                    real++;
+                    present++;
+                } else if (actual.is(CEBlocks.DISGUISED_MOTOR.get())) {
+                    present++;
+                }
+            }
+
+            if (present > bestPresent || (present == bestPresent && real > bestReal)) {
+                bestPresent = present;
+                bestReal = real;
+            }
+        }
+
+        if (bestReal >= 7) {
+            return Layer.HIGH;
+        }
+        if (bestReal == 6 && bestPresent == 6) {
+            return Layer.MIDDLE;
+        }
+        return Layer.LOW;
+    }
+
+    /**
      * Whether a template position is one of the motors.
      *
      * <p>Both kinds count: the complete template records Create's Creative Motor and the first

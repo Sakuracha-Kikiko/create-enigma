@@ -1,7 +1,10 @@
 package com.createenigma.content;
 
 import com.createenigma.structure.EnigmaStructure;
+import com.createenigma.structure.EnigmaStructure.Generation;
 import com.createenigma.structure.EnigmaValidator;
+
+import javax.annotation.Nullable;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -34,8 +37,23 @@ public class EnigmaCoreBlockEntity extends BlockEntity {
 
     private int ticksUntilCheck = SETTLE_DELAY;
 
+    /**
+     * How far the machine has been taken, or null when it is not assembled.
+     *
+     * <p>Recomputed with the formed state rather than stored, so it cannot go stale: the layer is
+     * read from the motors that are actually installed at the moment of the check.
+     */
+    @Nullable
+    private EnigmaValidator.Layer layer;
+
     public EnigmaCoreBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
+    }
+
+    /** The layer the machine is at, or null if it is not assembled. */
+    @Nullable
+    public EnigmaValidator.Layer layer() {
+        return layer;
     }
 
     /** Asks for a check a few ticks from now. Safe to call in bursts; the delay absorbs them. */
@@ -62,13 +80,22 @@ public class EnigmaCoreBlockEntity extends BlockEntity {
             return null;
         }
 
-        EnigmaValidator.Result result = EnigmaValidator.validate(level, worldPosition, structure);
+        // Validated against the assembled state - core present, six motors - not the complete
+        // machine. The base machine runs on disguised motors, which is what makes it reachable in
+        // survival; the seventh motor and the real ones are what the layers above are for, and they
+        // are read by layer() rather than required here. Demanding all seven would deadlock the
+        // whole progression: this machine is what produces the real motors it would be asking for.
+        EnigmaValidator.Result result =
+                EnigmaValidator.validate(level, worldPosition, structure, Generation.ASSEMBLED);
+
         switch (result.status()) {
             case FORMED -> {
+                layer = EnigmaValidator.layer(level, worldPosition, structure);
                 applyAssembled(true);
                 ticksUntilCheck = RECHECK_INTERVAL;
             }
             case UNFORMED -> {
+                layer = null;
                 applyAssembled(false);
                 ticksUntilCheck = RECHECK_INTERVAL;
             }
@@ -105,8 +132,15 @@ public class EnigmaCoreBlockEntity extends BlockEntity {
         }
 
         switch (result.status()) {
-            case FORMED -> player.displayClientMessage(
-                    Component.translatable("create_enigma.enigma_core.formed"), false);
+            case FORMED -> {
+                player.displayClientMessage(
+                        Component.translatable("create_enigma.enigma_core.formed"), false);
+                if (layer != null) {
+                    player.displayClientMessage(
+                            Component.translatable("create_enigma.enigma_core.layer."
+                                    + layer.name().toLowerCase(java.util.Locale.ROOT)), false);
+                }
+            }
             case UNKNOWN -> player.displayClientMessage(
                     Component.translatable("create_enigma.enigma_core.unknown"), false);
             case UNFORMED -> {

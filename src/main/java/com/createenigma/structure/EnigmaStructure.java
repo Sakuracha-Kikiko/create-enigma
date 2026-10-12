@@ -63,22 +63,28 @@ public final class EnigmaStructure {
     public record Entry(BlockPos offset, BlockState state) {}
 
     /**
-     * Which machine is being talked about.
+     * Which state of the machine is being talked about.
      *
-     * <p>Both are derived from the one template, so they can never disagree about anything except
-     * the changes listed here.
+     * <p>All three are derived from the one template, so they can never disagree about anything
+     * except the three changes in {@link #derive}.
      */
     public enum Generation {
         /**
-         * 一代 / the first generation: what a survival player can actually build.
-         *
-         * <p>Disguised motors instead of Creative Motors, a chest where the core will go, and
-         * <b>without</b> the motor at {@link #DISPUTED_MOTOR} - the one Create's ponder never shows.
-         * 82 blocks against the complete machine's 83.
+         * 一代 / what a survival player builds: a chest at the anchor, six disguised motors, and no
+         * seventh. This is what the wrench reads.
          */
         PRIMAL,
 
-        /** The machine as it was originally built, with all seven Creative Motors and the core. */
+        /**
+         * The same machine once the chest has become the core: core at the anchor, six motors.
+         *
+         * <p><b>This is the one the core validates itself against</b>, and it has to exist as its own
+         * state rather than reusing {@link #PRIMAL} - the core is standing where the chest template
+         * expects a chest, so the core would fail a check against its own first generation.
+         */
+        ASSEMBLED,
+
+        /** The machine as it was originally built: core, and all seven motors. */
         COMPLETE
     }
 
@@ -96,12 +102,15 @@ public final class EnigmaStructure {
     private final Vec3i size;
     private final List<Entry> entries;
     private final List<Entry> primalEntries;
+    private final List<Entry> assembledEntries;
     private final BlockPos coreOffset;
 
-    private EnigmaStructure(Vec3i size, List<Entry> entries, List<Entry> primalEntries, BlockPos coreOffset) {
+    private EnigmaStructure(Vec3i size, List<Entry> entries, List<Entry> primalEntries,
+                            List<Entry> assembledEntries, BlockPos coreOffset) {
         this.size = size;
         this.entries = entries;
         this.primalEntries = primalEntries;
+        this.assembledEntries = assembledEntries;
         this.coreOffset = coreOffset;
     }
 
@@ -115,12 +124,16 @@ public final class EnigmaStructure {
         return entries;
     }
 
-    /** The blocks of the given generation, in template coordinates. */
+    /** The blocks of the given state, in template coordinates. */
     public List<Entry> entries(Generation generation) {
-        return generation == Generation.PRIMAL ? primalEntries : entries;
+        return switch (generation) {
+            case PRIMAL -> primalEntries;
+            case ASSEMBLED -> assembledEntries;
+            case COMPLETE -> entries;
+        };
     }
 
-    /** What stands at the anchor: the core in the complete machine, a chest in the first one. */
+    /** What stands at the anchor: the core, except in the state the player builds first. */
     public static BlockState anchorState(Generation generation) {
         return generation == Generation.PRIMAL
                 ? Blocks.CHEST.defaultBlockState()
@@ -198,34 +211,36 @@ public final class EnigmaStructure {
     }
 
     /**
-     * Derives the first generation from the complete template.
+     * Derives one of the earlier states from the complete template.
      *
-     * <p>Three changes, and no fourth: Creative Motors become disguised ones, the core becomes a
-     * chest, and the motor at {@link #DISPUTED_MOTOR} is dropped.
+     * <p>Two changes below {@link Generation#COMPLETE}, and a third only for
+     * {@link Generation#PRIMAL}: motors become disguised ones, and the motor at
+     * {@link #DISPUTED_MOTOR} is dropped. The core becomes a chest only in the state the player
+     * builds first - after that the core is standing there and must be expected.
      *
-     * <p><b>Doing this in memory rather than shipping a second .nbt is deliberate.</b> Two files
-     * could drift - one regenerated, the other forgotten - and the failure would be a machine that
+     * <p><b>Doing this in memory rather than shipping more .nbt files is deliberate.</b> Files
+     * could drift - one regenerated, the others forgotten - and the failure would be a machine that
      * builds one way and validates another. Derived, they cannot disagree.
      */
-    private static List<Entry> derivePrimal(List<Entry> complete) {
-        List<Entry> primal = new ArrayList<>(complete.size());
+    private static List<Entry> derive(List<Entry> complete, Generation generation) {
+        List<Entry> derived = new ArrayList<>(complete.size());
 
         for (Entry entry : complete) {
-            if (entry.offset().equals(DISPUTED_MOTOR)) {
+            if (entry.offset().equals(DISPUTED_MOTOR) && generation != Generation.COMPLETE) {
                 continue;
             }
 
             BlockState state = entry.state();
             if (state.is(AllBlocks.CREATIVE_MOTOR.get())) {
-                primal.add(new Entry(entry.offset(), disguisedLike(state)));
-            } else if (state.is(CEBlocks.ENIGMA_CORE.get())) {
-                primal.add(new Entry(entry.offset(), anchorState(Generation.PRIMAL)));
+                derived.add(new Entry(entry.offset(), disguisedLike(state)));
+            } else if (state.is(CEBlocks.ENIGMA_CORE.get()) && generation == Generation.PRIMAL) {
+                derived.add(new Entry(entry.offset(), anchorState(Generation.PRIMAL)));
             } else {
-                primal.add(entry);
+                derived.add(entry);
             }
         }
 
-        return primal;
+        return derived;
     }
 
     /**
@@ -297,11 +312,12 @@ public final class EnigmaStructure {
 
             LOGGER.info("Enigma structure loaded: {} blocks, size {}, core at {}",
                     entries.size(), size, coreOffset);
-            List<Entry> primal = derivePrimal(entries);
-            LOGGER.info("Enigma first generation derived: {} blocks ({} fewer, {} motors disguised)",
-                    primal.size(), entries.size() - primal.size(),
-                    primal.stream().filter(e -> e.state().is(CEBlocks.DISGUISED_MOTOR.get())).count());
-            return new EnigmaStructure(size, List.copyOf(entries), List.copyOf(primal), coreOffset);
+            List<Entry> primal = derive(entries, Generation.PRIMAL);
+            List<Entry> assembled = derive(entries, Generation.ASSEMBLED);
+            LOGGER.info("Enigma derived states: primal {} blocks (chest), assembled {} blocks (core)",
+                    primal.size(), assembled.size());
+            return new EnigmaStructure(size, List.copyOf(entries), List.copyOf(primal),
+                    List.copyOf(assembled), coreOffset);
         } catch (Exception e) {
             LOGGER.error("Failed to read the Enigma structure template", e);
             return null;

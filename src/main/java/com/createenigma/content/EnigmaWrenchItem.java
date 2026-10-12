@@ -13,6 +13,7 @@ import net.minecraft.world.Containers;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
@@ -40,8 +41,20 @@ public class EnigmaWrenchItem extends Item {
         super(properties);
     }
 
+    /**
+     * Runs <b>before</b> the block gets its turn, which is the whole reason the chest stays shut.
+     *
+     * <p>{@code ServerPlayerGameMode.useItemOn} asks the item first
+     * ({@code stack.onItemUseFirst}) and only falls through to {@code blockstate.useItemOn} if that
+     * returns {@code PASS}. Overriding {@code useOn} instead - which runs <em>after</em> the block -
+     * meant the chest opened first and this never had a chance to say anything.
+     *
+     * <p>Returning anything other than {@code PASS} consumes the click, so no cancellation,
+     * event handler or block override is needed: a player holding the wrench simply cannot open a
+     * chest, and a player holding anything else opens it as usual.
+     */
     @Override
-    public InteractionResult useOn(UseOnContext context) {
+    public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext context) {
         Level level = context.getLevel();
         BlockPos pos = context.getClickedPos();
 
@@ -54,8 +67,6 @@ public class EnigmaWrenchItem extends Item {
         }
 
         if (level.isClientSide) {
-            // Consume the click on the client too, or the chest would open on the client while the
-            // server did something else.
             return InteractionResult.SUCCESS;
         }
 

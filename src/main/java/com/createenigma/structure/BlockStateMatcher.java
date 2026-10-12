@@ -48,8 +48,8 @@ public final class BlockStateMatcher {
     private static final Map<String, Set<String>> EXTRA_IGNORED = Map.of(
             // snow appears and melts on its own
             "minecraft:grass_block", Set.of("snowy"),
-            // a double chest reports type=left/right; that is still a chest in the right place
-            "minecraft:chest", Set.of("type"),
+            // a double chest reports type=left/right, and facing only says which way the lid opens
+            "minecraft:chest", Set.of("type", "facing"),
             // shape is recomputed from neighbours, and is cosmetic on a straight run
             "minecraft:spruce_stairs", Set.of("shape"),
             // pane connections are recomputed from neighbouring panes and are purely cosmetic
