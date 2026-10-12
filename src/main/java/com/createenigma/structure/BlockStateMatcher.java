@@ -57,8 +57,27 @@ public final class BlockStateMatcher {
             // the core's own state - we are standing on it, and it is what we are computing
             "create_enigma:enigma_core", Set.of("assembled"));
 
+    /**
+     * Blocks this mod treats as interchangeable, keyed by registry name.
+     *
+     * <p><b>"It is not picky."</b> The machine was built with Create's Creative Motors, which are
+     * unobtainable in survival. This mod ships a disguised copy that behaves the same and looks the
+     * same, and the whole conceit is that the machine cannot tell the difference - so the validator
+     * must not be able to either.
+     *
+     * <p>Both directions are listed rather than special-casing one, because both templates need it:
+     * the first-generation template records the disguised motor and the complete one records the
+     * real Creative Motor, and a player may legitimately end up with either block in either place.
+     *
+     * <p>Only the block is substituted; the properties are still compared, and the two blocks carry
+     * the same {@code facing} property, so a motor pointing the wrong way is still rejected.
+     */
+    private static final Map<String, String> SUBSTITUTES = Map.of(
+            "create_enigma:disguised_motor", "create:creative_motor",
+            "create:creative_motor", "create_enigma:disguised_motor");
+
     public static boolean matches(BlockState expected, BlockState actual) {
-        if (expected.getBlock() != actual.getBlock()) {
+        if (!blockMatches(expected, actual)) {
             return false;
         }
 
@@ -76,9 +95,19 @@ public final class BlockStateMatcher {
         return true;
     }
 
+    private static boolean blockMatches(BlockState expected, BlockState actual) {
+        if (expected.getBlock() == actual.getBlock()) {
+            return true;
+        }
+        // get() returns null for the overwhelming majority of blocks - every block not in the
+        // substitution table - so this is the common path, not an edge case.
+        String substitute = SUBSTITUTES.get(registryNameOf(expected));
+        return substitute != null && substitute.equals(registryNameOf(actual));
+    }
+
     /** Names the first property that differs, for diagnostics. Empty when the states match. */
     public static String firstDifference(BlockState expected, BlockState actual) {
-        if (expected.getBlock() != actual.getBlock()) {
+        if (!blockMatches(expected, actual)) {
             return "block is " + registryNameOf(actual) + ", expected " + registryNameOf(expected);
         }
 

@@ -10,6 +10,7 @@ import com.createenigma.registry.CEBlocks;
 import com.createenigma.registry.CEItems;
 import com.createenigma.structure.BlockStateMatcher;
 import com.createenigma.structure.EnigmaStructure;
+import com.createenigma.structure.EnigmaStructure.Generation;
 import com.createenigma.structure.EnigmaValidator;
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.content.decoration.palettes.AllPaletteBlocks;
@@ -139,6 +140,81 @@ public class EnigmaGameTests {
                     "a machine turned 270 degrees was not recognised; validator says: " + describe(helper));
             helper.succeed();
         });
+    }
+
+    // --------------------------------------------------------------------------------
+    // The first generation, which is what a survival player can actually build.
+    //
+    // It is derived from the complete template rather than shipped as a second file, so these
+    // tests are also the check that the derivation says what it is supposed to: a chest, six
+    // motors, and the disputed one gone.
+    //
+    // The disguised motor does not have to be placed here. Real Creative Motors are accepted in
+    // its position - that is what "it is not picky" means, and it is what lets a machine built
+    // either way read the same.
+    // --------------------------------------------------------------------------------
+
+    /** The disputed motor's position, relative to the test's own origin. */
+    private static BlockPos disputedMotorPos(EnigmaStructure structure) {
+        return CORE.offset(EnigmaStructure.DISPUTED_MOTOR.subtract(structure.coreOffset()));
+    }
+
+    /** Turns a freshly placed complete machine into the first generation, in the world. */
+    private static void downgradeToFirstGeneration(GameTestHelper helper, EnigmaStructure structure) {
+        helper.setBlock(CORE, Blocks.CHEST);
+        helper.setBlock(disputedMotorPos(structure), Blocks.AIR);
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 300)
+    public static void firstGenerationReadsAsComplete(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos anchor = helper.absolutePos(CORE);
+        EnigmaStructure structure = EnigmaStructure.get();
+
+        helper.assertTrue(EnigmaValidator.place(level, anchor), "template could not be placed");
+        downgradeToFirstGeneration(helper, structure);
+
+        EnigmaValidator.Report report =
+                EnigmaValidator.analyse(level, anchor, structure, Generation.PRIMAL);
+
+        helper.assertTrue(report.isComplete(),
+                "the first generation did not read as complete: " + report.placed() + "/" + report.total()
+                        + ", motors missing " + report.motorGaps());
+        helper.assertTrue(EnigmaValidator.validate(level, anchor, structure, Generation.PRIMAL).isFormed(),
+                "the first generation did not validate as formed");
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 300)
+    public static void missingMotorsAreReportedSeparately(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos anchor = helper.absolutePos(CORE);
+        EnigmaStructure structure = EnigmaStructure.get();
+
+        helper.assertTrue(EnigmaValidator.place(level, anchor), "template could not be placed");
+        downgradeToFirstGeneration(helper, structure);
+
+        // Everything a survival player can obtain is now in place; only the motors are absent.
+        //
+        // GameTest positions are relative to the test's own origin, while template offsets are
+        // relative to the template's corner, so each entry has to be rebased onto the core.
+        int removed = 0;
+        for (EnigmaStructure.Entry entry : structure.entries(Generation.PRIMAL)) {
+            BlockState state = entry.state();
+            if (state.is(CEBlocks.DISGUISED_MOTOR.get()) || state.is(AllBlocks.CREATIVE_MOTOR.get())) {
+                helper.setBlock(CORE.offset(entry.offset().subtract(structure.coreOffset())), Blocks.AIR);
+                removed++;
+            }
+        }
+        helper.assertTrue(removed == 6, "expected six motors in the first generation, found " + removed);
+
+        EnigmaValidator.Report report = EnigmaValidator.analyse(level, anchor, structure, Generation.PRIMAL);
+
+        helper.assertTrue(!report.isComplete(), "the machine should not read as complete with no motors");
+        helper.assertTrue(report.onlyMotorsMissing(),
+                "expected the only gaps to be motors; got " + report.placed() + "/" + report.total()
+                        + " with " + report.motorGaps() + " motor gaps");
+        helper.succeed();
     }
 
     @GameTest(template = TEMPLATE, timeoutTicks = 300)

@@ -7,6 +7,8 @@ import java.util.List;
 import com.createenigma.CreateEnigma;
 import com.createenigma.registry.CEBlocks;
 import com.mojang.logging.LogUtils;
+import com.simibubi.create.AllBlocks;
+import com.simibubi.create.content.kinetics.base.DirectionalKineticBlock;
 
 import org.slf4j.Logger;
 
@@ -22,6 +24,7 @@ import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -59,13 +62,46 @@ public final class EnigmaStructure {
     /** One block of the machine, at its offset from the template's own corner. */
     public record Entry(BlockPos offset, BlockState state) {}
 
+    /**
+     * Which machine is being talked about.
+     *
+     * <p>Both are derived from the one template, so they can never disagree about anything except
+     * the changes listed here.
+     */
+    public enum Generation {
+        /**
+         * 一代 / the first generation: what a survival player can actually build.
+         *
+         * <p>Disguised motors instead of Creative Motors, a chest where the core will go, and
+         * <b>without</b> the motor at {@link #DISPUTED_MOTOR} - the one Create's ponder never shows.
+         * 82 blocks against the complete machine's 83.
+         */
+        PRIMAL,
+
+        /** The machine as it was originally built, with all seven Creative Motors and the core. */
+        COMPLETE
+    }
+
+    /**
+     * The motor Create's own ponder never reveals, at {@code (6, 0, 3)} in this template's
+     * coordinates.
+     *
+     * <p>It is a real part of the machine - both Mojang's trailer and Create's show it - so the
+     * complete template keeps it. It is left out of the first generation on purpose: a player can
+     * only build what they were shown, and the ponder shows six motors. It gets added later, once
+     * there is a reason to doubt the thing that showed them.
+     */
+    public static final BlockPos DISPUTED_MOTOR = new BlockPos(6, 0, 3);
+
     private final Vec3i size;
     private final List<Entry> entries;
+    private final List<Entry> primalEntries;
     private final BlockPos coreOffset;
 
-    private EnigmaStructure(Vec3i size, List<Entry> entries, BlockPos coreOffset) {
+    private EnigmaStructure(Vec3i size, List<Entry> entries, List<Entry> primalEntries, BlockPos coreOffset) {
         this.size = size;
         this.entries = entries;
+        this.primalEntries = primalEntries;
         this.coreOffset = coreOffset;
     }
 
@@ -79,7 +115,19 @@ public final class EnigmaStructure {
         return entries;
     }
 
-    /** Where this mod's core block sits inside the template. */
+    /** The blocks of the given generation, in template coordinates. */
+    public List<Entry> entries(Generation generation) {
+        return generation == Generation.PRIMAL ? primalEntries : entries;
+    }
+
+    /** What stands at the anchor: the core in the complete machine, a chest in the first one. */
+    public static BlockState anchorState(Generation generation) {
+        return generation == Generation.PRIMAL
+                ? Blocks.CHEST.defaultBlockState()
+                : CEBlocks.ENIGMA_CORE.get().defaultBlockState();
+    }
+
+    /** Where the anchor block sits inside the template. The same position in either generation. */
     public BlockPos coreOffset() {
         return coreOffset;
     }
@@ -149,6 +197,49 @@ public final class EnigmaStructure {
         return new BlockPos(coreOffset.getX() + rx, templateOffset.getY(), coreOffset.getZ() + rz);
     }
 
+    /**
+     * Derives the first generation from the complete template.
+     *
+     * <p>Three changes, and no fourth: Creative Motors become disguised ones, the core becomes a
+     * chest, and the motor at {@link #DISPUTED_MOTOR} is dropped.
+     *
+     * <p><b>Doing this in memory rather than shipping a second .nbt is deliberate.</b> Two files
+     * could drift - one regenerated, the other forgotten - and the failure would be a machine that
+     * builds one way and validates another. Derived, they cannot disagree.
+     */
+    private static List<Entry> derivePrimal(List<Entry> complete) {
+        List<Entry> primal = new ArrayList<>(complete.size());
+
+        for (Entry entry : complete) {
+            if (entry.offset().equals(DISPUTED_MOTOR)) {
+                continue;
+            }
+
+            BlockState state = entry.state();
+            if (state.is(AllBlocks.CREATIVE_MOTOR.get())) {
+                primal.add(new Entry(entry.offset(), disguisedLike(state)));
+            } else if (state.is(CEBlocks.ENIGMA_CORE.get())) {
+                primal.add(new Entry(entry.offset(), anchorState(Generation.PRIMAL)));
+            } else {
+                primal.add(entry);
+            }
+        }
+
+        return primal;
+    }
+
+    /**
+     * A disguised motor facing whichever way the real one did.
+     *
+     * <p>{@code FACING} is inherited from {@code DirectionalKineticBlock} and is
+     * {@code BlockStateProperties.FACING} itself, so both blocks carry the same property instance
+     * and the value transfers directly.
+     */
+    private static BlockState disguisedLike(BlockState motor) {
+        return CEBlocks.DISGUISED_MOTOR.get().defaultBlockState()
+                .setValue(DirectionalKineticBlock.FACING, motor.getValue(DirectionalKineticBlock.FACING));
+    }
+
     /** Loads on first use. Returns null - and logs once - if the template cannot be read. */
     public static EnigmaStructure get() {
         synchronized (EnigmaStructure.class) {
@@ -206,7 +297,11 @@ public final class EnigmaStructure {
 
             LOGGER.info("Enigma structure loaded: {} blocks, size {}, core at {}",
                     entries.size(), size, coreOffset);
-            return new EnigmaStructure(size, List.copyOf(entries), coreOffset);
+            List<Entry> primal = derivePrimal(entries);
+            LOGGER.info("Enigma first generation derived: {} blocks ({} fewer, {} motors disguised)",
+                    primal.size(), entries.size() - primal.size(),
+                    primal.stream().filter(e -> e.state().is(CEBlocks.DISGUISED_MOTOR.get())).count());
+            return new EnigmaStructure(size, List.copyOf(entries), List.copyOf(primal), coreOffset);
         } catch (Exception e) {
             LOGGER.error("Failed to read the Enigma structure template", e);
             return null;
