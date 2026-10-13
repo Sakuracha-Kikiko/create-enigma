@@ -1,7 +1,9 @@
 package com.createenigma.gametest;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import com.createenigma.CreateEnigma;
 import com.createenigma.content.EnigmaAdvancements;
@@ -14,7 +16,12 @@ import com.createenigma.structure.EnigmaStructure;
 import com.createenigma.structure.EnigmaStructure.Generation;
 import com.createenigma.structure.EnigmaValidator;
 import com.simibubi.create.AllBlocks;
+import com.simibubi.create.AllDataComponents;
 import com.simibubi.create.content.decoration.palettes.AllPaletteBlocks;
+import com.simibubi.create.content.schematics.SchematicItem;
+
+import net.minecraft.core.Vec3i;
+import net.minecraft.core.component.DataComponentType;
 
 import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.commands.CommandSourceStack;
@@ -231,6 +238,45 @@ public class EnigmaGameTests {
     // generated NBT and reading it back through the wrench's own path makes it a fact rather than
     // an intention.
     // --------------------------------------------------------------------------------
+
+    // --------------------------------------------------------------------------------
+    // The blueprint item.
+    //
+    // This test exists because of a crash. The first version of the blueprint set two data
+    // components - the file name and the owner - on the reasonable-sounding theory that a blueprint
+    // is just a file reference. It is not: the client reads the extents from SCHEMATIC_BOUNDS to
+    // draw the outline and place the ghost, and SchematicHandler passes that straight to a tool
+    // that calls getCenter() on it. Holding the item crashed the game inside Create's tick loop.
+    //
+    // So the oracle is Create's own factory rather than a list written out by hand. Whatever a real
+    // blueprint carries, ours has to carry; if a future Create version adds an eighth component,
+    // this fails rather than waiting for another crash.
+    // --------------------------------------------------------------------------------
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void blueprintCarriesEverythingARealBlueprintCarries(GameTestHelper helper) {
+        // Requires the extracted file to exist, which is the point: it also proves the extraction
+        // put it where the server looks.
+        ItemStack reference = SchematicItem.create(helper.getLevel(),
+                EnigmaSchematic.RELATIVE_PATH, EnigmaSchematic.OWNER);
+        ItemStack ours = EnigmaSchematic.blueprintStack();
+
+        Set<DataComponentType<?>> missing = new LinkedHashSet<>(reference.getComponents().keySet());
+        missing.removeAll(ours.getComponents().keySet());
+
+        helper.assertTrue(missing.isEmpty(),
+                "the blueprint is missing components a real blueprint carries: " + missing);
+        helper.assertTrue(ours.getComponents().keySet().size() == reference.getComponents().keySet().size(),
+                "the blueprint carries components a real one does not: "
+                        + ours.getComponents().keySet());
+
+        // The one that crashed, checked by value rather than by presence.
+        helper.assertTrue(reference.get(AllDataComponents.SCHEMATIC_BOUNDS) instanceof Vec3i bounds
+                        && bounds.equals(ours.get(AllDataComponents.SCHEMATIC_BOUNDS)),
+                "bounds differ: real " + reference.get(AllDataComponents.SCHEMATIC_BOUNDS)
+                        + ", ours " + ours.get(AllDataComponents.SCHEMATIC_BOUNDS));
+        helper.succeed();
+    }
 
     @GameTest(template = TEMPLATE, timeoutTicks = 300)
     public static void blueprintBuildsAMachineTheWrenchAccepts(GameTestHelper helper) {

@@ -10,15 +10,22 @@ import java.util.Map;
 
 import com.createenigma.structure.EnigmaStructure.Generation;
 import com.mojang.logging.LogUtils;
+import com.simibubi.create.AllDataComponents;
+import com.simibubi.create.AllItems;
 import com.simibubi.create.foundation.utility.CreatePaths;
 
 import org.slf4j.Logger;
 
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Vec3i;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.IntTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtUtils;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
@@ -151,5 +158,34 @@ public final class EnigmaSchematic {
     public static List<EnigmaStructure.Entry> contents() {
         EnigmaStructure structure = EnigmaStructure.get();
         return structure == null ? new ArrayList<>() : structure.entries(Generation.PRIMAL);
+    }
+
+    /**
+     * A blueprint item for this mod's machine, carrying every component Create's own factory sets.
+     *
+     * <p><b>All seven, not just the name.</b> A blueprint is not "a file reference" - the client
+     * reads the extents from {@code SCHEMATIC_BOUNDS} to draw the outline and to place the ghost,
+     * and {@code SchematicHandler} hands that value straight to a tool that calls
+     * {@code getCenter()} on it. Setting only the file and the owner produced an item whose bounds
+     * were null, and holding it crashed the game inside Create's tick loop before any of our code
+     * ran again.
+     *
+     * <p>Built here rather than by calling {@code SchematicItem.create}, because that method needs
+     * a {@code Level} to read the file for its size - and the creative tab builds its stacks with
+     * no level available. The size is already known: it is the template's own.
+     */
+    public static ItemStack blueprintStack() {
+        EnigmaStructure structure = EnigmaStructure.get();
+        Vec3i size = structure == null ? Vec3i.ZERO : structure.size();
+
+        ItemStack stack = new ItemStack(AllItems.SCHEMATIC.get());
+        stack.set(AllDataComponents.SCHEMATIC_DEPLOYED, false);
+        stack.set(AllDataComponents.SCHEMATIC_OWNER, OWNER);
+        stack.set(AllDataComponents.SCHEMATIC_FILE, RELATIVE_PATH);
+        stack.set(AllDataComponents.SCHEMATIC_ANCHOR, BlockPos.ZERO);
+        stack.set(AllDataComponents.SCHEMATIC_ROTATION, Rotation.NONE);
+        stack.set(AllDataComponents.SCHEMATIC_MIRROR, Mirror.NONE);
+        stack.set(AllDataComponents.SCHEMATIC_BOUNDS, size);
+        return stack;
     }
 }

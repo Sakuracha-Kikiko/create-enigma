@@ -1298,23 +1298,74 @@ Files.list(CreatePaths.SCHEMATICS_DIR)          // ← 不递归
 * **12 个测试通过** ✓ 其中一个是蓝图：**把生成的 NBT 读成 `StructureTemplate` 放下去，
   再用扳手那条路读回来** ——不经过我们自己的放置代码 ✓
   这就是"图纸造出来的机器扳手认"的证据，而不是一句声明 ✓
+* **蓝图组件的测试以 Create 自己的工厂为基准** ✓ ——`SchematicItem.create()` 产出什么，
+  我们就必须有什么 ✓ 用**手写清单**当基准是不够的（第一版就是这么漏掉一个的 ✗）；
+  用工厂当基准，将来 Create 加第八个组件时**测试会红**，而不是再崩一次 ✓
 * 写出来的文件：**1075 字节、gzip 魔数 `1f 8b`、解压后首字节 `0x0a`** ✓
   ——和 Create 的 `GZIPInputStream` + `NbtIo.read` 完全对得上 ✓
 * 文件内容核对：**82 块** ✓ `disguised_motor` ✓ 锚点是 `minecraft:chest` ✓
   **`(6,0,3)` 那台不在** ✓
 
-### 现在的获取方式是**临时的**
+### ⚠️ 蓝图有**七个**组件，不是两个 —— 这条是崩出来的
+
+第一版只设了**文件名 + 所有者** ✓ 理由是"蓝图就是个文件引用" ✓ ——**听起来很对，但是错的** ✗
+
+实机结果是**拿在手里就崩**：
+
+```
+NullPointerException: Cannot invoke "AABB.getCenter()" because
+  SchematicHandler.getBounds() is null
+    at DeployTool.updateSelection(DeployTool.java:31)
+    at SchematicHandler.tick(SchematicHandler.java:118)
+```
+
+因为**尺寸不在文件里，在物品上**：
+
+```java
+// SchematicHandler:363
+Vec3i size = blueprint.get(AllDataComponents.SCHEMATIC_BOUNDS);   // ← 缺了就一直是 null
+bounds = new AABB(0, 0, 0, size.getX(), size.getY(), size.getZ());
+```
+
+而 `DeployTool` 直接对 `getBounds()` 调 `getCenter()` ✗ ——**Create 自己也没防这个 null** ✓
+所以一个不完整的蓝图不是"显示不出来"，是**崩游戏** ✓
+
+**完整的一份**（`SchematicItem.create` 设的全部七个）：
+
+| 组件 | 值 |
+|---|---|
+| `create:schematic_deployed` | `false` |
+| `create:schematic_owner` | `create_enigma` |
+| `create:schematic_file` | `enigma/first_generation.nbt` |
+| `create:schematic_anchor` | `[0, 0, 0]` |
+| `create:schematic_rotation` | `"none"` |
+| `create:schematic_mirror` | `"none"` |
+| **`create:schematic_bounds`** | **`[15, 4, 15]`** ← 缺的就是它 |
+
+**`EnigmaSchematic.blueprintStack()` 现在设全七个** ✓
+
+> 没有调 Create 的 `SchematicItem.create()`，因为那个方法要一个 `Level` 去读文件算尺寸 ✗
+> 而创造标签页构建物品时**没有 level** ✓ 尺寸我们本来就知道（就是模板自己的）✓
+
+### 获取方式是**临时的**
 
 蓝图暂时放在创造模式标签页里 ✓ ——**因为只能靠捡的蓝图是没法测试的** ✓
-正式做法是**战利品表**：
+
+正式做法是**战利品表** ✓ ——**但必须把七个组件都写全** ✗ 只写两个会做出一个崩游戏的物品：
 
 ```json
 {
   "type": "minecraft:item",
   "name": "create:schematic",
   "functions": [{ "function": "minecraft:set_components", "components": {
+      "create:schematic_deployed": false,
+      "create:schematic_owner": "create_enigma",
       "create:schematic_file": "enigma/first_generation.nbt",
-      "create:schematic_owner": "create_enigma" }}]
+      "create:schematic_anchor": [0, 0, 0],
+      "create:schematic_rotation": "none",
+      "create:schematic_mirror": "none",
+      "create:schematic_bounds": [15, 4, 15]
+  }}]
 }
 ```
 
