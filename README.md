@@ -1237,6 +1237,94 @@ stack.useOn(context)                   // ← 而 useOn 在这里，已经晚了
 * **扳手的右键交互没有自动化测试。** 在 GameTest 里拿玩家只能靠 `makeMockServerPlayerInLevel()`，
   而它会让本整合包直接崩（见 §11）。判定层测到了，**"右键→提示→替换"这一串没有** ✓
 * **没人真正搭过一遍。** 82 块手搭到底什么体感，只有搭过才知道 —— 而那正是决定后面所有数字的东西。
-* **一代的配方/图纸怎么让玩家知道** —— 目前靠扳手那句话，没有别的引导 ✓
+* **一代的图纸怎么让玩家知道** —— 现在有了：**蓝图**（见下一节）✓
+
+---
+
+## 16. 蓝图：把"搭"这件事交还给 Create
+
+**实测结论：82 块手搭是折磨，不是挑战** ——它没有内在逻辑，玩家也没有直观的参照。
+所以这一节做的事是：**让玩家能捡到一张蓝图，用 Create 自己的蓝图大炮把它打出来。**
+
+### 为什么可行：蓝图只是一个"文件名 + 所有者"
+
+`create:schematic` 身上只有两个数据组件 ✓ ——**结构本身不在物品里** ✓：
+
+```java
+// SchematicItem.loadSchematic
+if (!level.isClientSide()) {
+    dir  = <game>/schematics/uploaded;   file = <owner>/<name>.nbt   // 服务端打印用这个
+} else {
+    dir  = <game>/schematics;            file = <name>.nbt           // 客户端画虚影用这个
+}
+```
+
+所以 mod 想发一张蓝图，**唯一要做的就是把文件放到 Create 会去找的地方** ✓
+大炮、蓝图桌、旋转镜像、虚影预览**全部照常工作** ✓ 一行 Create 的代码都不用碰 ✓
+
+### ⚠️ 藏在子目录里 —— 这样蓝图桌看不到它
+
+```java
+Files.list(CreatePaths.SCHEMATICS_DIR)          // ← 不递归
+    .filter(f -> !Files.isDirectory(f) && f.getFileName().toString().endsWith(".nbt"))
+```
+
+**蓝图桌只扫根目录那一层** ✓ 所以：
+
+| | 路径 |
+|---|---|
+| 客户端 | `<game>/schematics/`**`enigma/`**`first_generation.nbt` |
+| 服务端 | `<game>/schematics/uploaded/create_enigma/`**`enigma/`**`first_generation.nbt` |
+| 物品组件 | `create:schematic_file` = `"enigma/first_generation.nbt"`<br>`create:schematic_owner` = `"create_enigma"` |
+
+**这不是钻空子**：Create 自己的路径解析**明确允许子目录** ✓ 只挡 `..` 穿越 ✓
+
+> **两个位置都要写** ✓ ——服务端负责打印、客户端负责画虚影，只写一个会出现
+> "能放下去但看不见虚影"或者反过来 ✓
+
+### ⚠️ 图纸是**生成**的，不是随包发的
+
+`EnigmaSchematic.build()` 从 **`EnigmaStructure.entries(Generation.PRIMAL)`** 构建 NBT ✓
+——**和校验器读的是同一个列表** ✓
+
+发第二份 `.nbt` 会有漂移风险：**图纸造出来的机器，扳手可能不认** ✗
+从同一个来源生成，它们**不可能不一致** ✓
+
+**方块实体数据刻意不带** ✓ ——蓝图的任务是"把对的方块放在对的位置"，
+而那正是校验器唯一看的东西 ✓ 马达会以默认转速起来，玩家自己调——和手搭完再做的是同一件事 ✓
+
+### 已核对的
+
+* **12 个测试通过** ✓ 其中一个是蓝图：**把生成的 NBT 读成 `StructureTemplate` 放下去，
+  再用扳手那条路读回来** ——不经过我们自己的放置代码 ✓
+  这就是"图纸造出来的机器扳手认"的证据，而不是一句声明 ✓
+* 写出来的文件：**1075 字节、gzip 魔数 `1f 8b`、解压后首字节 `0x0a`** ✓
+  ——和 Create 的 `GZIPInputStream` + `NbtIo.read` 完全对得上 ✓
+* 文件内容核对：**82 块** ✓ `disguised_motor` ✓ 锚点是 `minecraft:chest` ✓
+  **`(6,0,3)` 那台不在** ✓
+
+### 现在的获取方式是**临时的**
+
+蓝图暂时放在创造模式标签页里 ✓ ——**因为只能靠捡的蓝图是没法测试的** ✓
+正式做法是**战利品表**：
+
+```json
+{
+  "type": "minecraft:item",
+  "name": "create:schematic",
+  "functions": [{ "function": "minecraft:set_components", "components": {
+      "create:schematic_file": "enigma/first_generation.nbt",
+      "create:schematic_owner": "create_enigma" }}]
+}
+```
+
+**纯数据，不用写代码** ✓ 放哪个结构还没定 ✓
+
+### 未验证项
+
+* **大炮实机打印没有测过。** 测试走的是"读 NBT → 放下 → 校验"这条路 ✓
+  但大炮自己的流程（材料需求、逐块打印、卡住时的行为）没跑过 ✓
+* **蓝图桌里确实看不到它** —— 这一条是从 `Files.list` 不递归**推出来的**，
+  **没有实机确认** ✓ 你打开蓝图桌看一眼就知道 ✓
 
 

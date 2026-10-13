@@ -1,10 +1,14 @@
 package com.createenigma.registry;
 
 import com.createenigma.CreateEnigma;
+import com.createenigma.structure.EnigmaSchematic;
+import com.simibubi.create.AllDataComponents;
+import com.simibubi.create.AllItems;
 
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -28,10 +32,29 @@ public class CECreativeTabs {
                         output.accept(CEBlocks.ENIGMA_CORE.asItem());
                         output.accept(CEBlocks.DISGUISED_MOTOR.asItem());
                         output.accept(CEItems.ENIGMA_WRENCH.asItem());
+                        output.accept(blueprint());
                     })
                     .build());
 
     public static void register(IEventBus modBus) {
         TABS.register(modBus);
+    }
+
+    /**
+     * Create's own blueprint item, pointed at this mod's schematic.
+     *
+     * <p>Nothing new is registered: a blueprint is a name plus an owner, and both are data
+     * components on the item Create already ships. Everything downstream - the cannon, the table,
+     * rotation, mirroring, the ghost preview - works unchanged.
+     *
+     * <p>TODO: this is the testing route. The intended way to get one is to find it, which is a
+     * loot table entry rather than a creative tab entry. Kept for now because a blueprint that can
+     * only be found is a blueprint that cannot be tested.
+     */
+    private static ItemStack blueprint() {
+        ItemStack stack = new ItemStack(AllItems.SCHEMATIC.get());
+        stack.set(AllDataComponents.SCHEMATIC_FILE, EnigmaSchematic.RELATIVE_PATH);
+        stack.set(AllDataComponents.SCHEMATIC_OWNER, EnigmaSchematic.OWNER);
+        return stack;
     }
 }

@@ -9,6 +9,7 @@ import com.createenigma.content.EnigmaCoreBlock;
 import com.createenigma.registry.CEBlocks;
 import com.createenigma.registry.CEItems;
 import com.createenigma.structure.BlockStateMatcher;
+import com.createenigma.structure.EnigmaSchematic;
 import com.createenigma.structure.EnigmaStructure;
 import com.createenigma.structure.EnigmaStructure.Generation;
 import com.createenigma.structure.EnigmaValidator;
@@ -18,6 +19,7 @@ import com.simibubi.create.content.decoration.palettes.AllPaletteBlocks;
 import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
@@ -27,6 +29,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.ShapedRecipe;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.SlabBlock;
@@ -35,6 +38,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.level.block.state.properties.SlabType;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import net.minecraft.world.phys.Vec3;
 
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -214,6 +219,43 @@ public class EnigmaGameTests {
         helper.assertTrue(report.onlyMotorsMissing(),
                 "expected the only gaps to be motors; got " + report.placed() + "/" + report.total()
                         + " with " + report.motorGaps() + " motor gaps");
+        helper.succeed();
+    }
+
+    // --------------------------------------------------------------------------------
+    // The blueprint.
+    //
+    // This is what keeps the generated file honest. It is built from the same list the validator
+    // checks against, so the two cannot disagree by construction - but "cannot by construction" is
+    // exactly the kind of claim that quietly stops being true after a refactor. Placing the
+    // generated NBT and reading it back through the wrench's own path makes it a fact rather than
+    // an intention.
+    // --------------------------------------------------------------------------------
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 300)
+    public static void blueprintBuildsAMachineTheWrenchAccepts(GameTestHelper helper) {
+        EnigmaStructure structure = EnigmaStructure.get();
+        ServerLevel level = helper.getLevel();
+        BlockPos anchor = helper.absolutePos(CORE);
+
+        // Exactly what Create's cannon does with a schematic: read the NBT into a template, then
+        // place it. None of this goes through our own placement code.
+        StructureTemplate template = new StructureTemplate();
+        template.load(BuiltInRegistries.BLOCK.asLookup(), EnigmaSchematic.build(structure));
+
+        BlockPos origin = structure.originFor(anchor);
+        template.placeInWorld(level, origin, origin, new StructurePlaceSettings(), level.getRandom(),
+                Block.UPDATE_ALL);
+
+        helper.assertTrue(helper.getBlockState(CORE).is(Blocks.CHEST),
+                "the blueprint did not put a chest at the anchor; it put "
+                        + helper.getBlockState(CORE).getBlock());
+
+        EnigmaValidator.Report report = EnigmaValidator.analyse(level, anchor, structure, Generation.PRIMAL);
+        helper.assertTrue(report.isComplete(),
+                "the blueprint did not build a complete first generation: " + report.placed() + "/"
+                        + report.total() + ", motors missing " + report.motorGaps()
+                        + ", first gap " + report.firstGap() + " " + report.detail());
         helper.succeed();
     }
 
