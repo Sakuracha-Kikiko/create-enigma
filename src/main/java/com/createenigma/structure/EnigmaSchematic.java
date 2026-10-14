@@ -8,8 +8,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.createenigma.registry.CEBlocks;
 import com.createenigma.structure.EnigmaStructure.Generation;
 import com.mojang.logging.LogUtils;
+import com.simibubi.create.AllBlocks;
 import com.simibubi.create.AllDataComponents;
 import com.simibubi.create.AllItems;
 import com.simibubi.create.foundation.utility.CreatePaths;
@@ -113,6 +115,10 @@ public final class EnigmaSchematic {
         ListTag blocks = new ListTag();
 
         for (EnigmaStructure.Entry entry : entries) {
+            if (isPlayersOwnWork(entry.state())) {
+                continue;
+            }
+
             Integer index = seen.get(entry.state());
             if (index == null) {
                 index = palette.size();
@@ -142,6 +148,33 @@ public final class EnigmaSchematic {
             list.add(IntTag.valueOf(value));
         }
         return list;
+    }
+
+    /**
+     * Blocks the blueprint deliberately leaves out, for the player to place themselves.
+     *
+     * <p>Two kinds, for two different reasons:
+     *
+     * <ul>
+     *   <li><b>Belts.</b> Create's own cannon cannot place belt runs correctly - a known limitation
+     *       of the schematic system, not of this machine. Shipping them would leave a machine full
+     *       of subtly wrong belts, and fixing those by hand is worse than placing them by hand in
+     *       the first place.</li>
+     *   <li><b>Motors.</b> The machine needs six of them in the first generation and a survival
+     *       player cannot obtain a real one. A blueprint showing a row of disguised motors would
+     *       hand over the entire conceit at once: that they exist, that they go there, and that
+     *       they stand in for something else. Left out, the machine gets to say it in its own
+     *       voice - the wrench reports that nothing is missing except the motors, and adds that it
+     *       is not picky any more.</li>
+     * </ul>
+     *
+     * <p>Both are still required by {@link EnigmaStructure#entries(Generation)}: the blueprint
+     * omits them, the validator does not. That gap is the player's work.
+     */
+    public static boolean isPlayersOwnWork(BlockState state) {
+        return state.is(AllBlocks.BELT.get())
+                || state.is(AllBlocks.CREATIVE_MOTOR.get())
+                || state.is(CEBlocks.DISGUISED_MOTOR.get());
     }
 
     private static void write(Path target, CompoundTag schematic) {

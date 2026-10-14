@@ -279,7 +279,7 @@ public class EnigmaGameTests {
     }
 
     @GameTest(template = TEMPLATE, timeoutTicks = 300)
-    public static void blueprintBuildsAMachineTheWrenchAccepts(GameTestHelper helper) {
+    public static void blueprintBuildsTheShellAndThePlayerFinishesIt(GameTestHelper helper) {
         EnigmaStructure structure = EnigmaStructure.get();
         ServerLevel level = helper.getLevel();
         BlockPos anchor = helper.absolutePos(CORE);
@@ -297,11 +297,35 @@ public class EnigmaGameTests {
                 "the blueprint did not put a chest at the anchor; it put "
                         + helper.getBlockState(CORE).getBlock());
 
-        EnigmaValidator.Report report = EnigmaValidator.analyse(level, anchor, structure, Generation.PRIMAL);
-        helper.assertTrue(report.isComplete(),
-                "the blueprint did not build a complete first generation: " + report.placed() + "/"
-                        + report.total() + ", motors missing " + report.motorGaps()
-                        + ", first gap " + report.firstGap() + " " + report.detail());
+        // The shell on its own is not the machine, and - this is the part worth asserting - it must
+        // not read as "only the motors are missing" either. The belts are outstanding too, so the
+        // wrench has to keep asking for more rather than promising that a substitute motor will
+        // finish the job.
+        EnigmaValidator.Report afterBlueprint =
+                EnigmaValidator.analyse(level, anchor, structure, Generation.PRIMAL);
+        helper.assertTrue(!afterBlueprint.isComplete(),
+                "the blueprint built the entire machine; the belts and motors were supposed to be "
+                        + "left to the player");
+        helper.assertTrue(!afterBlueprint.onlyMotorsMissing(),
+                "the blueprint alone must not read as \"only motors missing\" - the belts are "
+                        + "outstanding too, and that hint would be a lie here");
+
+        // The player's half: everything the blueprint left out, placed as the template records it.
+        int placedByHand = 0;
+        for (EnigmaStructure.Entry entry : structure.entries(Generation.PRIMAL)) {
+            if (!EnigmaSchematic.isPlayersOwnWork(entry.state())) {
+                continue;
+            }
+            helper.setBlock(CORE.offset(entry.offset().subtract(structure.coreOffset())), entry.state());
+            placedByHand++;
+        }
+        helper.assertTrue(placedByHand > 0, "the blueprint omitted nothing; nothing was left to place");
+
+        EnigmaValidator.Report finished = EnigmaValidator.analyse(level, anchor, structure, Generation.PRIMAL);
+        helper.assertTrue(finished.isComplete(),
+                "shell plus the player's " + placedByHand + " blocks is still not complete: "
+                        + finished.placed() + "/" + finished.total() + ", first gap "
+                        + finished.firstGap() + " " + finished.detail());
         helper.succeed();
     }
 
