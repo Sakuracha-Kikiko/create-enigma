@@ -22,6 +22,9 @@ import com.mojang.logging.LogUtils;
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.AllDataComponents;
 import com.simibubi.create.content.decoration.palettes.AllPaletteBlocks;
+import com.simibubi.create.content.kinetics.belt.BeltBlock;
+import com.simibubi.create.content.kinetics.belt.BeltPart;
+import com.simibubi.create.content.kinetics.belt.BeltSlope;
 import com.simibubi.create.content.schematics.SchematicItem;
 
 import org.slf4j.Logger;
@@ -234,6 +237,59 @@ public class EnigmaGameTests {
         helper.assertTrue(report.onlyMotorsMissing(),
                 "expected the only gaps to be motors; got " + report.placed() + "/" + report.total()
                         + " with " + report.motorGaps() + " motor gaps");
+        helper.succeed();
+    }
+
+    /**
+     * A belt run laid the other way round is still the right belt.
+     *
+     * <p>Reported from play: the wrench said a block "should face south but faces north", and the
+     * block was a belt. Create does not let a builder pick a belt's direction - you click one shaft,
+     * then the other, and which end you started from decides both {@code facing} and whether each
+     * block is START or END. On a flat run both outcomes are valid belts along the same line.
+     *
+     * <p>That mattered more here than it would elsewhere: the belts were deliberately left out of
+     * the blueprint, so a builder has nothing to copy the direction from. Comparing it would be
+     * asking them to guess, and the guess has no wrong answer to learn from - only a machine that
+     * refuses to be finished.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 300)
+    public static void aBeltRunLaidTheOtherWayRoundStillCounts(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos anchor = helper.absolutePos(CORE);
+        EnigmaStructure structure = EnigmaStructure.get();
+
+        helper.assertTrue(EnigmaValidator.place(level, anchor), "template could not be placed");
+        downgradeToFirstGeneration(helper, structure);
+
+        int flipped = 0;
+        for (EnigmaStructure.Entry entry : structure.entries(Generation.PRIMAL)) {
+            BlockState state = entry.state();
+            // Sloped runs are left alone: there, the direction is fixed by which end is higher, so
+            // there is nothing for a builder to get wrong and nothing for this test to prove.
+            if (!state.is(AllBlocks.BELT.get())
+                    || state.getValue(BeltBlock.SLOPE) != BeltSlope.HORIZONTAL) {
+                continue;
+            }
+
+            BlockState other = state.setValue(BeltBlock.HORIZONTAL_FACING,
+                    state.getValue(BeltBlock.HORIZONTAL_FACING).getOpposite());
+            other = switch (other.getValue(BeltBlock.PART)) {
+                case START -> other.setValue(BeltBlock.PART, BeltPart.END);
+                case END -> other.setValue(BeltBlock.PART, BeltPart.START);
+                default -> other;
+            };
+
+            helper.setBlock(CORE.offset(entry.offset().subtract(structure.coreOffset())), other);
+            flipped++;
+        }
+        helper.assertTrue(flipped > 0, "there were no flat belts to lay the other way round");
+
+        EnigmaValidator.Result result =
+                EnigmaValidator.validate(level, anchor, structure, Generation.PRIMAL);
+        helper.assertTrue(result.isFormed(),
+                "a belt run laid the other way round was rejected: " + result.failingPos() + " "
+                        + result.detail() + " (" + flipped + " belts flipped)");
         helper.succeed();
     }
 
@@ -634,10 +690,20 @@ public class EnigmaGameTests {
         BlockState belt = AllBlocks.BELT.get().defaultBlockState();
         helper.assertFalse(BlockStateMatcher.matches(belt, cycle(belt, "slope")),
                 "belt slope must NOT be ignored - it is the shape of the machine");
-        helper.assertFalse(BlockStateMatcher.matches(belt, cycle(belt, "part")),
-                "belt part must NOT be ignored");
         helper.assertFalse(BlockStateMatcher.matches(belt, cycle(belt, "casing")),
                 "belt casing must NOT be ignored - an encased belt is a different build");
+
+        // Facing and part ARE ignored, and this assertion used to say the opposite.
+        //
+        // It was an assumption, not something checked: "a belt's part is a real difference" sounded
+        // right. It is not. Create derives both from which end of the run the builder clicked first,
+        // and the other outcome is the same belt along the same line with START and END swapped -
+        // indistinguishable in the world. Since the belts are not in the blueprint either, the
+        // original's choice is not something a builder could look up.
+        helper.assertTrue(BlockStateMatcher.matches(belt, cycle(belt, "part")),
+                "belt part must be ignored - reversing a run swaps START and END");
+        helper.assertTrue(BlockStateMatcher.matches(belt, cycle(belt, "facing")),
+                "belt facing must be ignored - it follows from which end the run was started at");
 
         // Pane connections are recomputed from neighbouring panes and are purely cosmetic.
         BlockState pane = AllPaletteBlocks.OAK_WINDOW_PANE.get().defaultBlockState();

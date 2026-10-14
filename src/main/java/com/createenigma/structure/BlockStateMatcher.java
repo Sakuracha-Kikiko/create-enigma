@@ -54,6 +54,14 @@ public final class BlockStateMatcher {
             "minecraft:spruce_stairs", Set.of("shape"),
             // pane connections are recomputed from neighbouring panes and are purely cosmetic
             "create:oak_window_pane", Set.of("north", "south", "east", "west"),
+            // A belt's direction is not the player's choice - and since the belts came out of the
+            // blueprint, demanding one would be demanding a guess. Create derives facing and part
+            // (START/MIDDLE/END/PULLEY) when a run is placed, and which end you click first decides
+            // both; the two outcomes are the same belt running the same line, mirrored. A builder
+            // has no way to tell which one the original used.
+            //
+            // Slope stays compared. A belt on a slope in a flat slot is a different machine.
+            "create:belt", Set.of("facing", "part"),
             // the core's own state - we are standing on it, and it is what we are computing
             "create_enigma:enigma_core", Set.of("assembled"));
 
