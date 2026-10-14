@@ -3,7 +3,10 @@ package com.createenigma.gametest;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 
 import com.createenigma.CreateEnigma;
 import com.createenigma.content.EnigmaAdvancements;
@@ -15,10 +18,13 @@ import com.createenigma.structure.EnigmaSchematic;
 import com.createenigma.structure.EnigmaStructure;
 import com.createenigma.structure.EnigmaStructure.Generation;
 import com.createenigma.structure.EnigmaValidator;
+import com.mojang.logging.LogUtils;
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.AllDataComponents;
 import com.simibubi.create.content.decoration.palettes.AllPaletteBlocks;
 import com.simibubi.create.content.schematics.SchematicItem;
+
+import org.slf4j.Logger;
 
 import net.minecraft.core.Vec3i;
 import net.minecraft.core.component.DataComponentType;
@@ -61,6 +67,8 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
  */
 @GameTestHolder("create_enigma")
 public class EnigmaGameTests {
+
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     /**
      * NeoForge prefixes this with the lowercased class name, so it resolves to
@@ -275,6 +283,117 @@ public class EnigmaGameTests {
                         && bounds.equals(ours.get(AllDataComponents.SCHEMATIC_BOUNDS)),
                 "bounds differ: real " + reference.get(AllDataComponents.SCHEMATIC_BOUNDS)
                         + ", ours " + ours.get(AllDataComponents.SCHEMATIC_BOUNDS));
+        helper.succeed();
+    }
+
+    /**
+     * Counts a placed structure by block registry name, so the two sides can be compared as
+     * dictionaries rather than by eyeballing a schematic.
+     */
+    private static Map<String, Integer> tally(ServerLevel level, BlockPos origin, Vec3i size) {
+        Map<String, Integer> counts = new TreeMap<>();
+        for (int x = 0; x < size.getX(); x++) {
+            for (int y = 0; y < size.getY(); y++) {
+                for (int z = 0; z < size.getZ(); z++) {
+                    BlockState state = level.getBlockState(origin.offset(x, y, z));
+                    if (state.isAir()) {
+                        continue;
+                    }
+                    String name = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+                    // The test harness's own structure block sits inside the volume. It is not
+                    // part of the machine and never appears in the template, so counting it would
+                    // report a difference that means nothing.
+                    if (name.equals("minecraft:structure_block")) {
+                        continue;
+                    }
+                    counts.merge(name, 1, Integer::sum);
+                }
+            }
+        }
+        return counts;
+    }
+
+    private static Map<String, Integer> tally(List<EnigmaStructure.Entry> entries) {
+        Map<String, Integer> counts = new TreeMap<>();
+        for (EnigmaStructure.Entry entry : entries) {
+            counts.merge(BuiltInRegistries.BLOCK.getKey(entry.state().getBlock()).toString(), 1,
+                    Integer::sum);
+        }
+        return counts;
+    }
+
+    /**
+     * The blueprint must omit the belts and the motors, and <b>nothing else</b>.
+     *
+     * <p>Written because the first version of this feature was reported as having taken the shafts
+     * with the belts. That is the failure mode worth guarding against: a filter on "belt" quietly
+     * also catching something a belt depends on leaves a machine that looks almost right and
+     * cannot be finished by hand without guesswork.
+     *
+     * <p>Comparing full type tallies rather than spot-checking a few blocks means any future
+     * over-reach shows up as a named difference, whatever it is.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 300)
+    public static void blueprintOmitsBeltsAndMotorsAndNothingElse(GameTestHelper helper) {
+        EnigmaStructure structure = EnigmaStructure.get();
+        ServerLevel level = helper.getLevel();
+        BlockPos anchor = helper.absolutePos(CORE);
+
+        StructureTemplate template = new StructureTemplate();
+        template.load(BuiltInRegistries.BLOCK.asLookup(), EnigmaSchematic.build(structure));
+
+        BlockPos origin = structure.originFor(anchor);
+        template.placeInWorld(level, origin, origin, new StructurePlaceSettings(), level.getRandom(),
+                Block.UPDATE_ALL);
+
+        Map<String, Integer> built = tally(level, origin, structure.size());
+        Map<String, Integer> expected = tally(structure.entries(Generation.PRIMAL));
+
+        Set<String> allTypes = new TreeSet<>();
+        allTypes.addAll(built.keySet());
+        allTypes.addAll(expected.keySet());
+
+        StringBuilder differences = new StringBuilder();
+        for (String type : allTypes) {
+            int got = built.getOrDefault(type, 0);
+            int want = expected.getOrDefault(type, 0);
+            if (got == want) {
+                continue;
+            }
+            boolean allowed = type.equals(BuiltInRegistries.BLOCK.getKey(AllBlocks.BELT.get()).toString())
+                    || type.equals(BuiltInRegistries.BLOCK.getKey(AllBlocks.CREATIVE_MOTOR.get()).toString())
+                    || type.equals(BuiltInRegistries.BLOCK.getKey(CEBlocks.DISGUISED_MOTOR.get()).toString());
+            differences.append('\n').append(allowed ? "  (expected) " : "  (UNEXPECTED) ")
+                    .append(type).append(": blueprint ").append(got).append(", machine ").append(want);
+            helper.assertFalse(!allowed,
+                    "the blueprint dropped or added blocks it should not have:" + differences);
+        }
+
+        helper.assertTrue(built.getOrDefault(
+                        BuiltInRegistries.BLOCK.getKey(AllBlocks.BELT.get()).toString(), 0) == 0,
+                "the blueprint still contains belts");
+        helper.assertTrue(built.getOrDefault(
+                        BuiltInRegistries.BLOCK.getKey(CEBlocks.DISGUISED_MOTOR.get()).toString(), 0) == 0,
+                "the blueprint still contains disguised motors");
+
+        // The point of the whole test: what a belt sits on has to survive the belt being dropped.
+        int shaftsBuilt = built.getOrDefault(
+                BuiltInRegistries.BLOCK.getKey(AllBlocks.SHAFT.get()).toString(), 0);
+        int shaftsWanted = expected.getOrDefault(
+                BuiltInRegistries.BLOCK.getKey(AllBlocks.SHAFT.get()).toString(), 0);
+        helper.assertTrue(shaftsWanted > 0 && shaftsBuilt == shaftsWanted,
+                "shafts did not survive: blueprint has " + shaftsBuilt + ", the machine needs "
+                        + shaftsWanted);
+
+        // Logged rather than asserted: the exact contents are useful to read back when someone asks
+        // "what did the blueprint actually leave me", and a passing test prints nothing otherwise.
+        LOGGER.info("Blueprint vs machine, by block type:");
+        for (String type : allTypes) {
+            int got = built.getOrDefault(type, 0);
+            int want = expected.getOrDefault(type, 0);
+            LOGGER.info("  {}{}: blueprint {}, machine {}", got == want ? "  " : "<>", type, got, want);
+        }
+
         helper.succeed();
     }
 
