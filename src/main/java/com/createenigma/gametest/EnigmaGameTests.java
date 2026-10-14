@@ -265,13 +265,12 @@ public class EnigmaGameTests {
         int flipped = 0;
         for (EnigmaStructure.Entry entry : structure.entries(Generation.PRIMAL)) {
             BlockState state = entry.state();
-            // Sloped runs are left alone: there, the direction is fixed by which end is higher, so
-            // there is nothing for a builder to get wrong and nothing for this test to prove.
-            if (!state.is(AllBlocks.BELT.get())
-                    || state.getValue(BeltBlock.SLOPE) != BeltSlope.HORIZONTAL) {
+            if (!state.is(AllBlocks.BELT.get())) {
                 continue;
             }
 
+            // Everything that encodes which way items travel: the horizontal direction, which end
+            // is START, and - on a diagonal run - whether it reads as going up or down.
             BlockState other = state.setValue(BeltBlock.HORIZONTAL_FACING,
                     state.getValue(BeltBlock.HORIZONTAL_FACING).getOpposite());
             other = switch (other.getValue(BeltBlock.PART)) {
@@ -279,11 +278,16 @@ public class EnigmaGameTests {
                 case END -> other.setValue(BeltBlock.PART, BeltPart.START);
                 default -> other;
             };
+            other = switch (other.getValue(BeltBlock.SLOPE)) {
+                case UPWARD -> other.setValue(BeltBlock.SLOPE, BeltSlope.DOWNWARD);
+                case DOWNWARD -> other.setValue(BeltBlock.SLOPE, BeltSlope.UPWARD);
+                default -> other;
+            };
 
             helper.setBlock(CORE.offset(entry.offset().subtract(structure.coreOffset())), other);
             flipped++;
         }
-        helper.assertTrue(flipped > 0, "there were no flat belts to lay the other way round");
+        helper.assertTrue(flipped > 0, "there were no belts to lay the other way round");
 
         EnigmaValidator.Result result =
                 EnigmaValidator.validate(level, anchor, structure, Generation.PRIMAL);
@@ -689,7 +693,7 @@ public class EnigmaGameTests {
         // Create's own blocks, where the derived-state problem is worst.
         BlockState belt = AllBlocks.BELT.get().defaultBlockState();
         helper.assertFalse(BlockStateMatcher.matches(belt, cycle(belt, "slope")),
-                "belt slope must NOT be ignored - it is the shape of the machine");
+                "belt slope must NOT be ignored wholesale - flat against sloped is a different build");
         helper.assertFalse(BlockStateMatcher.matches(belt, cycle(belt, "casing")),
                 "belt casing must NOT be ignored - an encased belt is a different build");
 
@@ -704,6 +708,17 @@ public class EnigmaGameTests {
                 "belt part must be ignored - reversing a run swaps START and END");
         helper.assertTrue(BlockStateMatcher.matches(belt, cycle(belt, "facing")),
                 "belt facing must be ignored - it follows from which end the run was started at");
+
+        // The diagonal slopes are the same run seen from the other end. Reported from play: "should
+        // be downward but is upward", fixed by re-placing the belt the other way round.
+        BlockState flat = belt.setValue(BeltBlock.SLOPE, BeltSlope.HORIZONTAL);
+        helper.assertTrue(BlockStateMatcher.matches(
+                        flat.setValue(BeltBlock.SLOPE, BeltSlope.UPWARD),
+                        flat.setValue(BeltBlock.SLOPE, BeltSlope.DOWNWARD)),
+                "upward and downward are the same diagonal run and must match");
+        helper.assertFalse(BlockStateMatcher.matches(flat,
+                        flat.setValue(BeltBlock.SLOPE, BeltSlope.UPWARD)),
+                "a flat belt must still not match a diagonal one");
 
         // Pane connections are recomputed from neighbouring panes and are purely cosmetic.
         BlockState pane = AllPaletteBlocks.OAK_WINDOW_PANE.get().defaultBlockState();

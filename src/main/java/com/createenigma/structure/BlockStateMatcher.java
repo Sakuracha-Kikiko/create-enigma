@@ -3,6 +3,11 @@ package com.createenigma.structure;
 import java.util.Map;
 import java.util.Set;
 
+import com.createenigma.registry.CEBlocks;
+import com.simibubi.create.AllBlocks;
+import com.simibubi.create.content.kinetics.belt.BeltBlock;
+import com.simibubi.create.content.kinetics.belt.BeltSlope;
+
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
@@ -85,6 +90,9 @@ public final class BlockStateMatcher {
             "create:creative_motor", "create_enigma:disguised_motor");
 
     public static boolean matches(BlockState expected, BlockState actual) {
+        expected = normalise(expected);
+        actual = normalise(actual);
+
         if (!blockMatches(expected, actual)) {
             return false;
         }
@@ -103,6 +111,35 @@ public final class BlockStateMatcher {
         return true;
     }
 
+    /**
+     * Folds away state that says which way a belt travels, leaving only what it looks like.
+     *
+     * <p>A belt's {@code slope} carries two different kinds of information at once: the shape
+     * (flat, diagonal, vertical, sideways) and, for the diagonal ones, the direction of travel.
+     * {@code UPWARD} and {@code DOWNWARD} are the same run of belt - Create's own rotation code
+     * converts one into the other for a half turn, leaving the shape alone. Which one a belt ends up
+     * with follows from which end of the run the builder clicked first, exactly like
+     * {@code facing}, so comparing it asks them to guess with nothing to copy from: the belts are
+     * not in the blueprint.
+     *
+     * <p>Reported from play twice - first "should face south but faces north" on a flat belt, then
+     * "should be downward but is upward" on a diagonal one - and both times re-placing the belt in
+     * the other order was the fix. That is the test of whether a property belongs here: if the only
+     * way to get it right is to guess, it is not part of the machine.
+     *
+     * <p>The shape still counts. A belt on a slope where a flat one belongs is a different machine,
+     * and this leaves that rejected.
+     */
+    private static BlockState normalise(BlockState state) {
+        if (state.is(AllBlocks.BELT.get())) {
+            BeltSlope slope = state.getValue(BeltBlock.SLOPE);
+            if (slope == BeltSlope.UPWARD || slope == BeltSlope.DOWNWARD) {
+                state = state.setValue(BeltBlock.SLOPE, BeltSlope.UPWARD);
+            }
+        }
+        return state;
+    }
+
     private static boolean blockMatches(BlockState expected, BlockState actual) {
         if (expected.getBlock() == actual.getBlock()) {
             return true;
@@ -115,6 +152,11 @@ public final class BlockStateMatcher {
 
     /** Names the first property that differs, for diagnostics. Empty when the states match. */
     public static String firstDifference(BlockState expected, BlockState actual) {
+        // Normalised first, or this would name a property the matcher deliberately folds away and
+        // send the player off to change something that was never wrong.
+        expected = normalise(expected);
+        actual = normalise(actual);
+
         if (!blockMatches(expected, actual)) {
             return "block is " + registryNameOf(actual) + ", expected " + registryNameOf(expected);
         }
