@@ -63,9 +63,9 @@ public final class EnigmaWrenchTooltip {
                 .withStyle(ChatFormatting.GOLD);
     }
 
-    /** The muttered second line: darker than the first, and struck through. */
+    /** The muttered second line: struck through, and the same colour as the first. */
     private static Component aside() {
         return Component.translatable("create_enigma.enigma_wrench.aside")
-                .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.STRIKETHROUGH);
+                .withStyle(ChatFormatting.GOLD, ChatFormatting.STRIKETHROUGH);
     }
 }
