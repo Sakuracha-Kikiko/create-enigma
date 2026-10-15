@@ -27,11 +27,13 @@ import org.slf4j.Logger;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.IntTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtUtils;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
@@ -273,6 +275,16 @@ public final class EnigmaSchematic {
         stack.set(AllDataComponents.SCHEMATIC_ROTATION, Rotation.NONE);
         stack.set(AllDataComponents.SCHEMATIC_MIRROR, Mirror.NONE);
         stack.set(AllDataComponents.SCHEMATIC_BOUNDS, size);
+
+        // A component rather than something client-side, so the name is right everywhere the stack
+        // appears - an item frame, a chat message, the cannon's menu - and not only in a tooltip.
+        // Translatable, so it follows the player's language.
+        //
+        // The texture cannot be changed to match: 1.21.1 has no item_model component, so an item's
+        // model is decided by its registry name alone, and this has to stay Create's blueprint item
+        // for the cannon to recognise it at all.
+        stack.set(DataComponents.ITEM_NAME,
+                Component.translatable("item.create_enigma.enigma_blueprint"));
         return stack;
     }
 }

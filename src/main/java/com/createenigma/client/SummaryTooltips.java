@@ -1,6 +1,7 @@
 package com.createenigma.client;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /**
@@ -19,5 +20,16 @@ public final class SummaryTooltips {
         return Component.translatable("create.tooltip.holdForDescription",
                         Component.translatable("create.tooltip.keyShift").withStyle(ChatFormatting.GRAY))
                 .withStyle(ChatFormatting.DARK_GRAY);
+    }
+
+    /**
+     * Whether the player is asking for the longer version.
+     *
+     * <p>{@code Screen.hasShiftDown} rather than an input event: it is what Create's own tooltips
+     * use, and it stays correct while a screen is open, which a key-state flag maintained by events
+     * would not.
+     */
+    public static boolean shiftHeld() {
+        return Screen.hasShiftDown();
     }
 }

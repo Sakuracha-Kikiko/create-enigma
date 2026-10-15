@@ -31,6 +31,8 @@ import org.slf4j.Logger;
 
 import net.minecraft.core.Vec3i;
 import net.minecraft.core.component.DataComponentType;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
 
 import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.commands.CommandSourceStack;
@@ -334,9 +336,17 @@ public class EnigmaGameTests {
 
         helper.assertTrue(missing.isEmpty(),
                 "the blueprint is missing components a real blueprint carries: " + missing);
-        helper.assertTrue(ours.getComponents().keySet().size() == reference.getComponents().keySet().size(),
-                "the blueprint carries components a real one does not: "
-                        + ours.getComponents().keySet());
+
+        // The one deliberate addition: a name. Every Create blueprint is called "Blueprint", which
+        // is fine until one of them is a specific thing the player is meant to recognise. item_name
+        // rather than custom_name, because custom_name renders in italics.
+        Set<DataComponentType<?>> extra = new LinkedHashSet<>(ours.getComponents().keySet());
+        extra.removeAll(reference.getComponents().keySet());
+        helper.assertTrue(extra.equals(Set.of(DataComponents.ITEM_NAME)),
+                "the blueprint carries components a real one does not: " + extra);
+        helper.assertTrue(ours.getHoverName().getString()
+                        .equals(Component.translatable("item.create_enigma.enigma_blueprint").getString()),
+                "the blueprint's name is not the mod's own: " + ours.getHoverName().getString());
 
         // The one that crashed, checked by value rather than by presence.
         helper.assertTrue(reference.get(AllDataComponents.SCHEMATIC_BOUNDS) instanceof Vec3i bounds

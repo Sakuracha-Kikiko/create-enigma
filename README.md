@@ -1282,6 +1282,61 @@ Files.list(CreatePaths.SCHEMATICS_DIR)          // ← 不递归
 > **两个位置都要写** ✓ ——服务端负责打印、客户端负责画虚影，只写一个会出现
 > "能放下去但看不见虚影"或者反过来 ✓
 
+### 名称可以改，贴图**改不了**
+
+实机反馈："它现在下面直接写着 `enigma/first_generation.nbt`，说实话看起来不太聪明" ✓
+
+**能做和不能做，取决于两处 Create 的代码：**
+
+**① 名称 —— 能改** ✓
+
+用 `minecraft:item_name` 组件 ✓ ——**不是** `custom_name` ✓：
+
+```java
+stack.set(DataComponents.ITEM_NAME, Component.translatable("item.create_enigma.enigma_blueprint"));
+```
+
+`custom_name` 会**渲染成斜体** ✗（那是铁砧改名的语义 ✓）
+`item_name` 替换名字**且不斜体** ✓ ——而且它是**组件**，所以**物品展示框、聊天栏、大炮界面里都是这个名字** ✓
+不是只在 tooltip 里好看 ✓ ——而且是 `translatable` ✓ 跟随语言 ✓
+
+**② tooltip 里的文件路径 —— 能删** ✓
+
+`ItemTooltipEvent` ✓ 里把那行删掉 ✓ 换成我们自己的话 ✓
+
+**顺序是确认过的** ✓ ——`ItemStack.getTooltipLines` 里：
+
+```java
+list.add(名字);                            // ← item_name
+this.getItem().appendHoverText(...);       // ← Create 在这里加那行金色文件名
+...
+EventHooks.onItemTooltip(...);             // ← 我们的钩子在这里，之后
+```
+
+**是按内容删的，不是按位置** ✓ ——Create 哪天在上面再加一行也不会崩 ✓
+
+**③ 贴图 —— 做不到** ✗
+
+**两个各自都足够的理由：**
+
+1. **1.21.1 没有 `item_model` 组件** ✗（那是 1.21.4 的东西 ✓）
+   → 物品的模型**只由注册名决定** ✓ 换不了 ✓
+2. **而且我们必须继续用 `create:schematic`** ✗ ——大炮和手持逻辑用的是**精确物品判定**：
+
+```java
+// SchematicHandler.findBlueprintInHand
+if (!AllItems.SCHEMATIC.isIn(stack))     // ← 不是 instanceof
+    return null;
+```
+
+→ **注册我们自己的蓝图物品，大炮根本认不出来** ✗
+
+**唯一的绕法是替换 Create 的 `schematic` 模型**、在里面加一条按 `custom_model_data` 的 override ✓
+——但那会**影响所有蓝图** ✗ 而且 Create 更新模型就得跟着改 ✗ **不值得** ✓
+
+**所以现在的效果**：名字是「**厄尼格默的图纸**」✓ tooltip 是「它还记得自己该长什么样。」✓
+按住 Shift 是完整说明 ✓ ——**贴图仍然是 Create 的蓝图** ✓
+
 ### ⚠️⚠️ "传送带和传动杆" —— 我错了**三次**，最后是**你给了正确答案**
 
 **第一次**："你删传送带的时候把传送带上的传动杆也跟着删了" ✓
