@@ -8,11 +8,14 @@ import javax.annotation.Nullable;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 
 /**
  * Holds the formed/unformed state of the nearby machine and keeps it honest.
@@ -120,6 +123,33 @@ public class EnigmaCoreBlockEntity extends BlockEntity {
         // The block state is the client-visible half of this: vanilla syncs it for free, so no
         // custom packet is needed to make the core light up for everyone nearby.
         level.setBlock(worldPosition, state.setValue(EnigmaCoreBlock.ASSEMBLED, assembled), Block.UPDATE_ALL);
+
+        if (assembled) {
+            // Placed after the equality check above, so this fires on the transition and never on
+            // the once-a-second re-check that follows it.
+            awardWitnesses();
+        }
+    }
+
+    /**
+     * Gives the advancement to everyone close enough to have seen it happen.
+     *
+     * <p>Everyone in range rather than whoever placed the last block: the machine records nothing
+     * about who built it, and a build like this is not one person placing one block - it is a
+     * blueprint, a cannon, a stack of belts and a search for six motors. Whoever is standing there
+     * when it lights up is who did it.
+     *
+     * <p>Sixteen blocks, which is about as far as the core's own presence reaches.
+     */
+    private void awardWitnesses() {
+        if (!(level instanceof ServerLevel serverLevel)) {
+            return;
+        }
+
+        for (ServerPlayer player : serverLevel.getEntitiesOfClass(ServerPlayer.class,
+                new AABB(worldPosition).inflate(16.0D))) {
+            EnigmaAdvancements.grantMysticAge(player);
+        }
     }
 
     /** Tells the player what the machine currently looks like, and where it first disagrees. */

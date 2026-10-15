@@ -52,6 +52,15 @@ public final class EnigmaAdvancements {
             ResourceLocation.fromNamespaceAndPath(CreateEnigma.MOD_ID, "enigma");
 
     /**
+     * The core standing assembled for the first time - the machine actually working.
+     *
+     * <p>Last in the chain, and the only one that is not about seeing something. The three before it
+     * are all "you have been shown"; this one is "you built it".
+     */
+    public static final ResourceLocation MYSTIC_AGE =
+            ResourceLocation.fromNamespaceAndPath(CreateEnigma.MOD_ID, "mystic_age");
+
+    /**
      * The criterion key every advancement file declares.
      *
      * <p>Public so the GameTest can assert the files really declare it. {@code award()} returns
@@ -83,6 +92,23 @@ public final class EnigmaAdvancements {
     public static boolean grantEnigma(ServerPlayer player) {
         award(player, PONDER_WATCHED);
         return award(player, ENIGMA);
+    }
+
+    /**
+     * Awards everything above, plus {@code mystic_age}, for a core that has just assembled.
+     *
+     * <p>The whole chain is awarded rather than just the new one. A player can assemble the machine
+     * without ever having watched the scene that precedes it - they could have been told how, or
+     * found the blueprint and worked it out - and a node whose parent is unawarded still renders,
+     * but a tab whose root is unawarded does not. Awarding the chain keeps the tab visible and the
+     * layout intact no matter which route the player took to get here.
+     *
+     * @return true when this call was the one that granted {@code mystic_age}
+     */
+    public static boolean grantMysticAge(ServerPlayer player) {
+        award(player, PONDER_WATCHED);
+        award(player, ENIGMA);
+        return award(player, MYSTIC_AGE);
     }
 
     private static boolean award(ServerPlayer player, ResourceLocation id) {

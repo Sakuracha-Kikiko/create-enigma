@@ -622,22 +622,26 @@ public class EnigmaGameTests {
         AdvancementHolder root = server.getAdvancements().get(EnigmaAdvancements.ROOT);
         AdvancementHolder watched = server.getAdvancements().get(EnigmaAdvancements.PONDER_WATCHED);
         AdvancementHolder enigma = server.getAdvancements().get(EnigmaAdvancements.ENIGMA);
+        AdvancementHolder mysticAge = server.getAdvancements().get(EnigmaAdvancements.MYSTIC_AGE);
         helper.assertTrue(root != null, "advancement " + EnigmaAdvancements.ROOT + " did not load");
         helper.assertTrue(watched != null,
                 "advancement " + EnigmaAdvancements.PONDER_WATCHED + " did not load");
         helper.assertTrue(enigma != null, "advancement " + EnigmaAdvancements.ENIGMA + " did not load");
+        helper.assertTrue(mysticAge != null,
+                "advancement " + EnigmaAdvancements.MYSTIC_AGE + " did not load");
         helper.assertTrue(root.value().isRoot(), EnigmaAdvancements.ROOT + " is not a root advancement");
 
         // The chain is what fixes the display order. Siblings under one parent are laid out in the
         // iteration order of an identity hash set, so two children of the root would swap places
-        // between launches; root -> watched -> enigma has only one order. If either link broke,
-        // the advancement would still be granted and simply displayed in the wrong place.
+        // between launches; a chain has only one order. If a link broke, the advancement would
+        // still be granted and simply displayed in the wrong place.
         assertParent(helper, watched, EnigmaAdvancements.ROOT);
         assertParent(helper, enigma, EnigmaAdvancements.PONDER_WATCHED);
+        assertParent(helper, mysticAge, EnigmaAdvancements.ENIGMA);
 
         // award() returns false for an unknown criterion rather than throwing, so this is the
         // assertion that stands between a typo and a feature that silently never appears.
-        for (AdvancementHolder holder : new AdvancementHolder[] {root, watched, enigma}) {
+        for (AdvancementHolder holder : new AdvancementHolder[] {root, watched, enigma, mysticAge}) {
             helper.assertTrue(holder.value().criteria().containsKey(EnigmaAdvancements.CRITERION),
                     "an advancement does not declare the criterion '" + EnigmaAdvancements.CRITERION
                             + "'; it declares " + holder.value().criteria().keySet());
