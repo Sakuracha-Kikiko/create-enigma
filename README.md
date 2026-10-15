@@ -1300,20 +1300,29 @@ stack.set(DataComponents.ITEM_NAME, Component.translatable("item.create_enigma.e
 `item_name` 替换名字**且不斜体** ✓ ——而且它是**组件**，所以**物品展示框、聊天栏、大炮界面里都是这个名字** ✓
 不是只在 tooltip 里好看 ✓ ——而且是 `translatable` ✓ 跟随语言 ✓
 
-**② tooltip 里的文件路径 —— 能删** ✓
+**② tooltip —— 整个重建** ✓（下面那条的**修正版** ✓ 第一版的做法有个漏洞 ✓）
 
-`ItemTooltipEvent` ✓ 里把那行删掉 ✓ 换成我们自己的话 ✓
+**② tooltip —— 整个重建** ✓
 
-**顺序是确认过的** ✓ ——`ItemStack.getTooltipLines` 里：
+Create 给蓝图加**两行**，两行都在描述"一张蓝图"这个泛称，而这不是泛称 ✓：
 
-```java
-list.add(名字);                            // ← item_name
-this.getItem().appendHoverText(...);       // ← Create 在这里加那行金色文件名
-...
-EventHooks.onItemTooltip(...);             // ← 我们的钩子在这里，之后
-```
+| 来源 | 内容 |
+|---|---|
+| `SchematicItem.appendHoverText` | 金色的**文件名** ✓ |
+| `ClientEvents.addToItemTooltip` → `ItemDescription` | 由 `item.create.schematic.tooltip.*` 语言键生成的**描述** ✓ |
 
-**是按内容删的，不是按位置** ✓ ——Create 哪天在上面再加一行也不会崩 ✓
+**⚠️ 两行都是通过 `ItemTooltipEvent` 加的** ✗ ——所以**谁先跑由注册顺序决定** ✗
+而注册顺序**取决于 mod 加载顺序** ✗ ——**不能依赖** ✓
+
+**修法**：`@SubscribeEvent(priority = EventPriority.LOWEST)` ✓ ——保证我们最后跑 ✓
+然后**只留第 0 行（名字）✓，其余全清掉** ✓，再加我们自己的 ✓
+
+**这同时让删除与语言无关** ✓ ——
+按文件名匹配会漏掉描述 ✗；按描述文字匹配则**只在中英文里对** ✗ ——
+**而那种失败，在作者读不懂的语言里没人会报** ✓
+
+> **代价是明说的**：以后 Create 在这里加一行值得看的，我们也会把它清掉 ✓
+> —— **一句错的描述，比一句没有的描述更糟** ✓
 
 **③ 贴图 —— 做不到** ✗
 
