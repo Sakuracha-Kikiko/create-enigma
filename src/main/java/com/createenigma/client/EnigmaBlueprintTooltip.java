@@ -77,7 +77,11 @@ public final class EnigmaBlueprintTooltip {
 
         tooltip.add(Component.translatable("create_enigma.blueprint.summary")
                 .withStyle(ChatFormatting.GOLD));
+
+        // Create separates the summary from the group below it with one blank line
+        // (ItemDescription.Builder.build adds CommonComponents.EMPTY before the behaviours).
+        tooltip.add(Component.empty());
         tooltip.add(Component.translatable("create_enigma.blueprint.detail")
-                .withStyle(ChatFormatting.GOLD));
+                .withStyle(ChatFormatting.DARK_GRAY));
     }
 }

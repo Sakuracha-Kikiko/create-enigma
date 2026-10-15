@@ -52,6 +52,11 @@ public final class EnigmaWrenchTooltip {
         }
 
         tooltip.add(summary());
+
+        // Create separates the summary from the group below it with one blank line
+        // (ItemDescription.Builder.build adds CommonComponents.EMPTY before the behaviours). Without
+        // it the aside reads as a second sentence of the summary rather than as a separate voice.
+        tooltip.add(Component.empty());
         tooltip.add(aside());
     }
 
@@ -63,9 +68,9 @@ public final class EnigmaWrenchTooltip {
                 .withStyle(ChatFormatting.GOLD);
     }
 
-    /** The muttered second line: struck through, and the same colour as the first. */
+    /** The muttered second line: struck through, and set apart from the summary above it. */
     private static Component aside() {
         return Component.translatable("create_enigma.enigma_wrench.aside")
-                .withStyle(ChatFormatting.GOLD, ChatFormatting.STRIKETHROUGH);
+                .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.STRIKETHROUGH);
     }
 }
