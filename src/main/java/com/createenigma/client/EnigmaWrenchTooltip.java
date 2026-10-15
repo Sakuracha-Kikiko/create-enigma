@@ -51,12 +51,11 @@ public final class EnigmaWrenchTooltip {
             return;
         }
 
-        tooltip.add(summary());
-
-        // Create separates the summary from the group below it with one blank line
-        // (ItemDescription.Builder.build adds CommonComponents.EMPTY before the behaviours). Without
-        // it the aside reads as a second sentence of the summary rather than as a separate voice.
+        // One blank line, directly under the hint rather than between the later lines: it separates
+        // "here is how to read this" from the text itself. It is added only when something follows,
+        // so the collapsed tooltip does not end in a gap.
         tooltip.add(Component.empty());
+        tooltip.add(summary());
         tooltip.add(aside());
     }
 

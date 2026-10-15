@@ -43,6 +43,10 @@ public final class DisguisedMotorTooltip {
             return;
         }
 
+        // One blank line directly under the hint, as on the other two items. Nothing is shown before
+        // Shift but the hint itself - announcing more would half-spoil the disguise this block
+        // exists to keep.
+        event.getToolTip().add(Component.empty());
         event.getToolTip().add(Component.translatable("create_enigma.disguised_motor.summary")
                 .withStyle(ChatFormatting.GOLD));
     }
