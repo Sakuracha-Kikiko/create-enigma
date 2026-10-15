@@ -6,6 +6,7 @@ import java.util.Set;
 import com.createenigma.registry.CEBlocks;
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.content.kinetics.belt.BeltBlock;
+import com.simibubi.create.content.kinetics.belt.BeltPart;
 import com.simibubi.create.content.kinetics.belt.BeltSlope;
 
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -93,6 +94,9 @@ public final class BlockStateMatcher {
         expected = normalise(expected);
         actual = normalise(actual);
 
+        if (isBearShaftFor(expected, actual)) {
+            return true;
+        }
         if (!blockMatches(expected, actual)) {
             return false;
         }
@@ -109,6 +113,29 @@ public final class BlockStateMatcher {
             }
         }
         return true;
+    }
+
+    /**
+     * Whether a bare shaft standing where a belt's end block belongs satisfies it.
+     *
+     * <p>A run's two end blocks are the pulleys: the belt wrapped around a shaft. With the belt not
+     * fitted, the shaft is what is there - which is exactly the state the blueprint leaves, since
+     * the belts are the player's to place. So both have to be accepted, or the machine could never
+     * be finished after using the blueprint, and a player who placed the belts first and then broke
+     * one could never put it back.
+     *
+     * <p>Only the ends. A middle block is belt and nothing else, and a shaft standing there is a
+     * different structure - the run would not line up.
+     *
+     * <p>Compared before the properties, because the two blocks do not share a property set: a belt
+     * has part, slope and facing, a shaft has axis, and there is no meaningful mapping between them
+     * to check.
+     */
+    private static boolean isBearShaftFor(BlockState expected, BlockState actual) {
+        if (!expected.is(AllBlocks.BELT.get()) || !actual.is(AllBlocks.SHAFT.get())) {
+            return false;
+        }
+        return expected.getValue(BeltBlock.PART) != BeltPart.MIDDLE;
     }
 
     /**
@@ -157,6 +184,9 @@ public final class BlockStateMatcher {
         expected = normalise(expected);
         actual = normalise(actual);
 
+        if (isBearShaftFor(expected, actual)) {
+            return "";
+        }
         if (!blockMatches(expected, actual)) {
             return "block is " + registryNameOf(actual) + ", expected " + registryNameOf(expected);
         }

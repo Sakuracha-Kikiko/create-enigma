@@ -383,12 +383,13 @@ public class EnigmaGameTests {
     }
 
     /**
-     * The blueprint must omit the belts and the motors, and <b>nothing else</b>.
+     * The blueprint must omit the belts and the motors, leave a shaft behind for every belt that had
+     * an end block, and <b>change nothing else</b>.
      *
-     * <p>Written because the first version of this feature was reported as having taken the shafts
+     * <p>Written because the first version of this feature was reported as taking the shafts out
      * with the belts. That is the failure mode worth guarding against: a filter on "belt" quietly
-     * also catching something a belt depends on leaves a machine that looks almost right and
-     * cannot be finished by hand without guesswork.
+     * catching something a belt depends on leaves a machine that looks almost right and cannot be
+     * finished by hand without guesswork.
      *
      * <p>Comparing full type tallies rather than spot-checking a few blocks means any future
      * over-reach shows up as a named difference, whatever it is.
@@ -409,6 +410,19 @@ public class EnigmaGameTests {
         Map<String, Integer> built = tally(level, origin, structure.size());
         Map<String, Integer> expected = tally(structure.entries(Generation.PRIMAL));
 
+        String shaftType = BuiltInRegistries.BLOCK.getKey(AllBlocks.SHAFT.get()).toString();
+        String beltType = BuiltInRegistries.BLOCK.getKey(AllBlocks.BELT.get()).toString();
+
+        // Every belt block that was an end of a run becomes a shaft; middles leave a gap.
+        int endBelts = 0;
+        for (EnigmaStructure.Entry entry : structure.entries(Generation.PRIMAL)) {
+            if (entry.state().is(AllBlocks.BELT.get())
+                    && entry.state().getValue(BeltBlock.PART) != BeltPart.MIDDLE) {
+                endBelts++;
+            }
+        }
+        helper.assertTrue(endBelts > 0, "the machine has no belt ends; this test proves nothing");
+
         Set<String> allTypes = new TreeSet<>();
         allTypes.addAll(built.keySet());
         allTypes.addAll(expected.keySet());
@@ -417,41 +431,45 @@ public class EnigmaGameTests {
         for (String type : allTypes) {
             int got = built.getOrDefault(type, 0);
             int want = expected.getOrDefault(type, 0);
-            if (got == want) {
-                continue;
+
+            // The three types whose counts are supposed to move.
+            if (type.equals(beltType)) {
+                want = 0;
+            } else if (type.equals(shaftType)) {
+                want += endBelts;
+            } else if (type.equals(BuiltInRegistries.BLOCK.getKey(AllBlocks.CREATIVE_MOTOR.get()).toString())
+                    || type.equals(BuiltInRegistries.BLOCK.getKey(CEBlocks.DISGUISED_MOTOR.get()).toString())) {
+                want = 0;
             }
-            boolean allowed = type.equals(BuiltInRegistries.BLOCK.getKey(AllBlocks.BELT.get()).toString())
-                    || type.equals(BuiltInRegistries.BLOCK.getKey(AllBlocks.CREATIVE_MOTOR.get()).toString())
-                    || type.equals(BuiltInRegistries.BLOCK.getKey(CEBlocks.DISGUISED_MOTOR.get()).toString());
-            differences.append('\n').append(allowed ? "  (expected) " : "  (UNEXPECTED) ")
-                    .append(type).append(": blueprint ").append(got).append(", machine ").append(want);
-            helper.assertFalse(!allowed,
-                    "the blueprint dropped or added blocks it should not have:" + differences);
+
+            if (got != want) {
+                differences.append('\n').append("  ").append(type)
+                        .append(": blueprint ").append(got).append(", expected ").append(want);
+            }
         }
 
-        helper.assertTrue(built.getOrDefault(
-                        BuiltInRegistries.BLOCK.getKey(AllBlocks.BELT.get()).toString(), 0) == 0,
+        helper.assertTrue(differences.isEmpty(),
+                "the blueprint does not match the machine minus the player's part:" + differences);
+
+        helper.assertTrue(built.getOrDefault(beltType, 0) == 0,
                 "the blueprint still contains belts");
         helper.assertTrue(built.getOrDefault(
                         BuiltInRegistries.BLOCK.getKey(CEBlocks.DISGUISED_MOTOR.get()).toString(), 0) == 0,
                 "the blueprint still contains disguised motors");
 
-        // The point of the whole test: what a belt sits on has to survive the belt being dropped.
-        int shaftsBuilt = built.getOrDefault(
-                BuiltInRegistries.BLOCK.getKey(AllBlocks.SHAFT.get()).toString(), 0);
-        int shaftsWanted = expected.getOrDefault(
-                BuiltInRegistries.BLOCK.getKey(AllBlocks.SHAFT.get()).toString(), 0);
-        helper.assertTrue(shaftsWanted > 0 && shaftsBuilt == shaftsWanted,
-                "shafts did not survive: blueprint has " + shaftsBuilt + ", the machine needs "
-                        + shaftsWanted);
+        // What a belt sits on survives: every end block left a shaft, and none went missing.
+        helper.assertTrue(built.getOrDefault(shaftType, 0) == endBelts + expected.getOrDefault(shaftType, 0),
+                "shafts did not survive the belts being dropped: blueprint has "
+                        + built.getOrDefault(shaftType, 0) + ", expected "
+                        + (endBelts + expected.getOrDefault(shaftType, 0))
+                        + " (" + endBelts + " belt ends plus the machine's own)");
 
         // Logged rather than asserted: the exact contents are useful to read back when someone asks
         // "what did the blueprint actually leave me", and a passing test prints nothing otherwise.
         LOGGER.info("Blueprint vs machine, by block type:");
         for (String type : allTypes) {
-            int got = built.getOrDefault(type, 0);
-            int want = expected.getOrDefault(type, 0);
-            LOGGER.info("  {}{}: blueprint {}, machine {}", got == want ? "  " : "<>", type, got, want);
+            LOGGER.info("  {}: blueprint {}, machine {}", type, built.getOrDefault(type, 0),
+                    expected.getOrDefault(type, 0));
         }
 
         helper.succeed();
