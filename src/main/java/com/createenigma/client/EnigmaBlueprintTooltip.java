@@ -81,6 +81,6 @@ public final class EnigmaBlueprintTooltip {
         tooltip.add(Component.translatable("create_enigma.blueprint.summary")
                 .withStyle(ChatFormatting.GOLD));
         tooltip.add(Component.translatable("create_enigma.blueprint.detail")
-                .withStyle(ChatFormatting.DARK_GRAY));
+                .withStyle(ChatFormatting.GRAY));
     }
 }

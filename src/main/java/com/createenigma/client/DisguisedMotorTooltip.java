@@ -49,5 +49,7 @@ public final class DisguisedMotorTooltip {
         event.getToolTip().add(Component.empty());
         event.getToolTip().add(Component.translatable("create_enigma.disguised_motor.summary")
                 .withStyle(ChatFormatting.GOLD));
+        event.getToolTip().add(Component.translatable("create_enigma.disguised_motor.aside")
+                .withStyle(ChatFormatting.DARK_GRAY));
     }
 }
