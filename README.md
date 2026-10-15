@@ -1282,41 +1282,52 @@ Files.list(CreatePaths.SCHEMATICS_DIR)          // ← 不递归
 > **两个位置都要写** ✓ ——服务端负责打印、客户端负责画虚影，只写一个会出现
 > "能放下去但看不见虚影"或者反过来 ✓
 
-### ⚠️ tooltip 的排布：**我抄了一个 Create 自己都不用的小工具**
+### ⚠️ tooltip 的排布：**我在这件事上错了两次**
 
-实机反馈两条：
+**第一次反馈**："Create 原版的东西不按 Shift 显示概要的时候外面是没有任何东西的" ✗
+"而蓝图概要外面还有一句" ✗ + "概要是橙色而不是白色" ✗
 
-1. "机械动力原版的东西不按 Shift 显示概要的时候**外面是没有任何东西的**" ✗
-2. "机械动力原版的概要是**橙色**而不是白色" ✗（三个物品都有 ✓）
+**我当时的推理**：`ItemDescription:144` 里 `linesOnShift.addAll(summary)` ✓
+→ "概要在 Shift 里" ✓ → "**不按 Shift 就什么都不显示**" ✗ ——**我只读了一半** ✗
 
-**第 1 条的根因**：我在三个 tooltip 里都加了一行 **"Hold [Shift] for Summary"** ✗
-——从 `TooltipHelper.holdShift(palette, highlighted)` 重建的 ✓
-我当时想的是"跟 Create 的说法一致就是跟 Create 一致" ✓ ——**但那是错的** ✗
+**第二次反馈**："现在原来的'按住[Shift]可查看概要'也被搞不在了，看起来你删多了" ✓
 
-**`holdShift` 还在 jar 里，但 Create 自己已经不调它了** ✗
-（`BlueprintScreen:149` 那个调用是**注释掉的** ✓）
-
-**Create 真正的模型**在 `ItemDescription` 第 144 行：
+**完整读 `getCurrentLines()` 和 `Builder.build()` 之后**：
 
 ```java
-linesOnShift.addAll(TooltipHelper.cutStringTextComponent(summaryLine, palette));
+public ImmutableList<Component> getCurrentLines() {
+    if (Screen.hasShiftDown())  return linesOnShift;
+    else if (Control)           return linesOnCtrl;
+    else                        return lines;      // ← 第三个列表，我漏了
+}
+
+// build() 里，提示行被加进全部三个列表：
+for (List<Component> list : Arrays.asList(lines, linesOnShift, linesOnCtrl)) {
+    tabBuilder.append(keyShift.plainCopy().withStyle(shift ? WHITE : GRAY));
+    list.add(0, tabBuilder);
+}
 ```
 
-**概要在 `linesOnShift` 里** ✓ ——所以：
+**正确的模型：**
 
-| | Create 的物品 | 我们（错） |
-|---|---|---|
-| **不按 Shift** | **只有名字** ✓ | 名字 + "Hold [Shift]…" ✗ |
-| **按 Shift** | 概要（橙）+ 条件/行为 ✓ | 概要（**灰** ✗）+ 更多 |
+| 状态 | Create 显示 |
+|---|---|
+| **不按 Shift** | 名字 + **提示行**（`lines`，Shift 键是**灰**的） |
+| **按 Shift** | 名字 + **提示行**（Shift 键变**白**）+ 概要 + 条件 |
 
-**修法**：三个 tooltip 全部改成 **不按 Shift 就什么都不加** ✓ 概要改成 **`ChatFormatting.GOLD`** ✓
-`SummaryTooltips.holdShift()` **删掉** ✓ 只留 `shiftHeld()` ✓
+**提示行始终都在** ✓ **不按 Shift 时不显示的是概要** ✓
 
-> **对伪装创造马达来说这一条尤其重要** ✓ ——
-> 那行提示等于**主动告诉玩家"这里有东西可看"** ✗ 而那正是伪装想避免的 ✓
+**所以第一次反馈的真正含义是**：我们的蓝图在不按 Shift 时显示的是
+"**概要 + 提示行**" ✗ ——比 Create 多了**概要**那一行 ✓✓（不是多了提示行 ✓）
 
-> **教训**：`holdShift` 是"Create 里存在的东西" ✗ 不是"Create 在用的东西" ✓
-> **存在 ≠ 在用** ——和这个项目里那个常量池的教训是同一个 ✓
+**两次修法**：
+- 第一版：删掉提示行 ✗ ——**删多了** ✓
+- 现在：**提示行始终有** ✓ 概要只在 Shift 时出现 ✓
+- 提示行里 Shift 键的颜色随按住与否变化 ✓（**那是 Create 唯一的按键反馈** ✓）
+
+> **教训**：我读了一个方法就下了结论 ✓ ——
+> 而**同一个类里还有 `getCurrentLines()` 和 `build()` 两个方法在决定最终结果** ✗
+> **"我看到了相关的代码" ≠ "我看到了全部相关的代码"** ✓
 
 ### 名称可以改，贴图**改不了**
 

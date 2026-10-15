@@ -67,9 +67,10 @@ public final class EnigmaBlueprintTooltip {
             tooltip.subList(1, tooltip.size()).clear();
         }
 
-        // Nothing while Shift is up. Create's summaries live in ItemDescription.linesOnShift, so a
-        // Create item shows its name and nothing else - there is no "hold Shift" hint in the game,
-        // and an earlier version of this put one on all three of this mod's items.
+        // Nothing but the hint while Shift is up, then the summary. That is Create's own split:
+        // ItemDescription.Builder.build adds the hint to all three of its lists and the summary only
+        // to linesOnShift.
+        tooltip.add(SummaryTooltips.holdShift());
         if (!SummaryTooltips.shiftHeld()) {
             return;
         }
