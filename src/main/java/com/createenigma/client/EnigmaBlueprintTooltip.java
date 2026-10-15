@@ -67,14 +67,16 @@ public final class EnigmaBlueprintTooltip {
             tooltip.subList(1, tooltip.size()).clear();
         }
 
-        tooltip.add(Component.translatable("create_enigma.blueprint.summary")
-                .withStyle(ChatFormatting.GRAY));
-
-        if (SummaryTooltips.shiftHeld()) {
-            tooltip.add(Component.translatable("create_enigma.blueprint.detail")
-                    .withStyle(ChatFormatting.DARK_GRAY));
-        } else {
-            tooltip.add(SummaryTooltips.holdShift());
+        // Nothing while Shift is up. Create's summaries live in ItemDescription.linesOnShift, so a
+        // Create item shows its name and nothing else - there is no "hold Shift" hint in the game,
+        // and an earlier version of this put one on all three of this mod's items.
+        if (!SummaryTooltips.shiftHeld()) {
+            return;
         }
+
+        tooltip.add(Component.translatable("create_enigma.blueprint.summary")
+                .withStyle(ChatFormatting.GOLD));
+        tooltip.add(Component.translatable("create_enigma.blueprint.detail")
+                .withStyle(ChatFormatting.DARK_GRAY));
     }
 }

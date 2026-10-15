@@ -1,12 +1,9 @@
 package com.createenigma.client;
 
-import java.util.List;
-
 import com.createenigma.CreateEnigma;
 import com.createenigma.registry.CEBlocks;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -16,13 +13,17 @@ import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
 /**
  * The Disguised Motor's summary.
  *
- * <p>It has to be behind Shift for the same reason the block exists: the disguise is supposed to
- * hold until someone looks closely. The item is indistinguishable from a real Creative Motor -
- * same model, same texture, same rarity colour - so the only thing that ever gives it away is a
- * player who holds Shift over it.
+ * <p>It is behind Shift for the same reason the block exists: the disguise is supposed to hold until
+ * someone looks closely. The item is indistinguishable from a real Creative Motor - same model, same
+ * texture, same rarity colour - so the only thing that ever gives it away is a player who holds
+ * Shift over it.
  *
- * <p>Layout follows Create's summaries: the hint is always the last line, and holding Shift only
- * appends below it, so nothing reflows.
+ * <p>Nothing is shown while Shift is up, which is what Create's own summaries do: the text lives in
+ * {@code ItemDescription.linesOnShift}, so an unmodified Create item shows its name and nothing
+ * else. An earlier version added a "Hold [Shift] for Summary" hint, copied from
+ * {@code TooltipHelper.holdShift} - a method Create still ships but no longer calls. It gave every
+ * one of these items a line that no Create item has, and on this one it also half-spoiled the
+ * disguise by announcing that there was something to see.
  */
 @EventBusSubscriber(modid = CreateEnigma.MOD_ID, value = Dist.CLIENT)
 public final class DisguisedMotorTooltip {
@@ -38,13 +39,11 @@ public final class DisguisedMotorTooltip {
         if (event.getEntity() == null) {
             return;
         }
-
-        List<Component> tooltip = event.getToolTip();
-        tooltip.add(SummaryTooltips.holdShift());
-        if (Screen.hasShiftDown()) {
-            tooltip.add(Component.empty());
-            tooltip.add(Component.translatable("create_enigma.disguised_motor.summary")
-                    .withStyle(ChatFormatting.GRAY));
+        if (!SummaryTooltips.shiftHeld()) {
+            return;
         }
+
+        event.getToolTip().add(Component.translatable("create_enigma.disguised_motor.summary")
+                .withStyle(ChatFormatting.GOLD));
     }
 }

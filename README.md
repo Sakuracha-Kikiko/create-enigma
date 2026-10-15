@@ -1282,6 +1282,42 @@ Files.list(CreatePaths.SCHEMATICS_DIR)          // ← 不递归
 > **两个位置都要写** ✓ ——服务端负责打印、客户端负责画虚影，只写一个会出现
 > "能放下去但看不见虚影"或者反过来 ✓
 
+### ⚠️ tooltip 的排布：**我抄了一个 Create 自己都不用的小工具**
+
+实机反馈两条：
+
+1. "机械动力原版的东西不按 Shift 显示概要的时候**外面是没有任何东西的**" ✗
+2. "机械动力原版的概要是**橙色**而不是白色" ✗（三个物品都有 ✓）
+
+**第 1 条的根因**：我在三个 tooltip 里都加了一行 **"Hold [Shift] for Summary"** ✗
+——从 `TooltipHelper.holdShift(palette, highlighted)` 重建的 ✓
+我当时想的是"跟 Create 的说法一致就是跟 Create 一致" ✓ ——**但那是错的** ✗
+
+**`holdShift` 还在 jar 里，但 Create 自己已经不调它了** ✗
+（`BlueprintScreen:149` 那个调用是**注释掉的** ✓）
+
+**Create 真正的模型**在 `ItemDescription` 第 144 行：
+
+```java
+linesOnShift.addAll(TooltipHelper.cutStringTextComponent(summaryLine, palette));
+```
+
+**概要在 `linesOnShift` 里** ✓ ——所以：
+
+| | Create 的物品 | 我们（错） |
+|---|---|---|
+| **不按 Shift** | **只有名字** ✓ | 名字 + "Hold [Shift]…" ✗ |
+| **按 Shift** | 概要（橙）+ 条件/行为 ✓ | 概要（**灰** ✗）+ 更多 |
+
+**修法**：三个 tooltip 全部改成 **不按 Shift 就什么都不加** ✓ 概要改成 **`ChatFormatting.GOLD`** ✓
+`SummaryTooltips.holdShift()` **删掉** ✓ 只留 `shiftHeld()` ✓
+
+> **对伪装创造马达来说这一条尤其重要** ✓ ——
+> 那行提示等于**主动告诉玩家"这里有东西可看"** ✗ 而那正是伪装想避免的 ✓
+
+> **教训**：`holdShift` 是"Create 里存在的东西" ✗ 不是"Create 在用的东西" ✓
+> **存在 ≠ 在用** ——和这个项目里那个常量池的教训是同一个 ✓
+
 ### 名称可以改，贴图**改不了**
 
 实机反馈："它现在下面直接写着 `enigma/first_generation.nbt`，说实话看起来不太聪明" ✓
