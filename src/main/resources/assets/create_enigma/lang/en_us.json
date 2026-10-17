@@ -27,6 +27,16 @@
   "create_enigma.ponder.tag.enigma": "The Enigma",
   "create_enigma.ponder.tag.enigma.description": "God of the first of all machines, cast down your gaze upon us",
   "create_enigma.ponder.mojang_enigma_true.header": "The Work of God, First of All Machines, Enigma",
+  "create_enigma.ponder.enigma_wrench_1.header": "Calling on the Machine God",
+  "create_enigma.ponder.enigma_wrench.1a": "To call upon the great God of All Machines...",
+  "create_enigma.ponder.enigma_wrench.1b": "...you must first take up His relic: the Enigma Wrench.",
+  "create_enigma.ponder.enigma_wrench_2.header": "The Enigma Wrench",
+  "create_enigma.ponder.enigma_wrench.2a": "You catch some revelation from the whispering,",
+  "create_enigma.ponder.enigma_wrench.2b": "the Enigma Wrench is no different from a Wrench in substance,",
+  "create_enigma.ponder.enigma_wrench.2c": "but it holds far more precise components.",
+  "create_enigma.ponder.enigma_wrench.2d": "You also make out some information:",
+  "create_enigma.ponder.enigma_wrench.2e": "%s",
+  "create_enigma.ponder.enigma_wrench.2f": "...but what does that mean?",
   "advancement.create_enigma.root": "Welcome to Create...?",
   "advancement.create_enigma.root.desc": "...are you sure this is Create?"
 }

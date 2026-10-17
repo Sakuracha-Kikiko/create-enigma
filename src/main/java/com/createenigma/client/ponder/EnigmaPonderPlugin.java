@@ -1,7 +1,7 @@
 package com.createenigma.client.ponder;
 
 import com.createenigma.CreateEnigma;
-import com.createenigma.registry.CEBlocks;
+import com.createenigma.registry.CEItems;
 import com.mojang.logging.LogUtils;
 
 import net.createmod.ponder.api.registration.PonderPlugin;
@@ -55,9 +55,32 @@ public class EnigmaPonderPlugin implements PonderPlugin {
     public static final ResourceLocation ENIGMA_TAG =
             ResourceLocation.fromNamespaceAndPath(CreateEnigma.MOD_ID, "enigma");
 
-    /** The core's item, which is what our scene hangs off. */
+    /**
+     * The wrench's item, which is what this chapter's scenes hang off now.
+     *
+     * <p>It used to be the core. The scenes changed: the machine's own scene is hidden for the time
+     * being, and what is left teaches how the wrench is made - which belongs on the wrench, not on
+     * something you need the wrench to obtain.
+     */
+    private static final ResourceLocation ENIGMA_WRENCH =
+            ResourceLocation.fromNamespaceAndPath(CreateEnigma.MOD_ID, "enigma_wrench");
+
+    /** The core's item. Kept for the scene that is currently hidden; nothing else refers to it. */
     private static final ResourceLocation ENIGMA_CORE =
             ResourceLocation.fromNamespaceAndPath(CreateEnigma.MOD_ID, "enigma_core");
+
+    /**
+     * The small platform the wrench scenes are staged on.
+     *
+     * <p>{@code addStoryBoard} has no overload without a schematic - every scene is placed on some
+     * structure, even one whose only content is a floating wrench and some text. This is the
+     * five-by-ten platform the scenes were written against.
+     *
+     * <p>The path follows Ponder's own rule: {@code <namespace>:ponder/<path>.nbt}. Ponder appends
+     * the {@code ponder/} prefix and the {@code .nbt} suffix itself, so neither appears here.
+     */
+    private static final ResourceLocation FLOOR_SCHEMATIC =
+            ResourceLocation.fromNamespaceAndPath(CreateEnigma.MOD_ID, "floor");
 
     /**
      * Create's schematic for the machine.
@@ -81,15 +104,16 @@ public class EnigmaPonderPlugin implements PonderPlugin {
         if (!EnigmaPonderUnlockWatcher.isUnlocked()) {
             return;
         }
-        // Registering the tag only creates the chapter - it files nothing.
+        // Registering the tag only creates the chapter - it files nothing. The icon is the wrench,
+        // because the wrench is what the chapter is about now.
         helper.registerTag(ENIGMA_TAG)
                 .addToIndex()
-                .item(CEBlocks.ENIGMA_CORE.get(), true, false)
+                .item(CEItems.ENIGMA_WRENCH.get(), true, false)
                 .title("神秘机械")
                 .description("源初的万机之神，我祈求您降下您的目光")
                 .register();
 
-        // This is what actually puts the core in the chapter.
+        // This is what actually puts the item in the chapter.
         //
         // Two things that look like they would do it, and do not:
         //   TagBuilder.item(item, icon, main) - sets the tag's icon items and nothing else
@@ -97,7 +121,7 @@ public class EnigmaPonderPlugin implements PonderPlugin {
         // Neither touches the registry's component-to-tag map, which is what the tag screen
         // reads. Only addTagToComponent - reached here through the addToTag(...).add(...)
         // builder - puts an item under a tag.
-        helper.addToTag(ENIGMA_TAG).add(ENIGMA_CORE);
+        helper.addToTag(ENIGMA_TAG).add(ENIGMA_WRENCH);
     }
 
     @Override
@@ -106,8 +130,21 @@ public class EnigmaPonderPlugin implements PonderPlugin {
             LOGGER.info("Enigma ponder: locked, registering nothing");
             return;
         }
-        LOGGER.info("Enigma ponder: unlocked, registering scene for {} under tag {}",
-                ENIGMA_CORE, ENIGMA_TAG);
-        helper.addStoryBoard(ENIGMA_CORE, MOJANG_SCHEMATIC, EnigmaScenes::firstOfAllMachines, ENIGMA_TAG);
+        LOGGER.info("Enigma ponder: unlocked, registering wrench scenes for {} under tag {}",
+                ENIGMA_WRENCH, ENIGMA_TAG);
+
+        // Both scenes are staged on the same small platform; neither draws a structure of its own.
+        helper.addStoryBoard(ENIGMA_WRENCH, FLOOR_SCHEMATIC, EnigmaScenes::callingTheMachine, ENIGMA_TAG);
+        helper.addStoryBoard(ENIGMA_WRENCH, FLOOR_SCHEMATIC, EnigmaScenes::theWrenchNumbers, ENIGMA_TAG);
+
+        // Hidden for now, at the user's request, while the wrench scenes take its place. To bring it
+        // back, this is the only line needed - the scene itself is untouched:
+        //
+        //   helper.addStoryBoard(ENIGMA_CORE, MOJANG_SCHEMATIC, EnigmaScenes::firstOfAllMachines,
+        //           ENIGMA_TAG);
+        //
+        // If it does come back, the core also needs filing under the tag again:
+        //
+        //   helper.addToTag(ENIGMA_TAG).add(ENIGMA_CORE);
     }
 }

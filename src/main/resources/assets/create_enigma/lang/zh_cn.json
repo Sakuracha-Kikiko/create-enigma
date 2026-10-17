@@ -27,6 +27,16 @@
   "create_enigma.ponder.tag.enigma": "神秘机械",
   "create_enigma.ponder.tag.enigma.description": "源初的万机之神，我祈求您降下您的目光",
   "create_enigma.ponder.mojang_enigma_true.header": "神的作品，万机之首，厄尼格默",
+  "create_enigma.ponder.enigma_wrench_1.header": "呼唤万机之神",
+  "create_enigma.ponder.enigma_wrench.1a": "若要呼唤伟大的万机之神……",
+  "create_enigma.ponder.enigma_wrench.1b": "……需要先取得祂的遗物，神秘扳手。",
+  "create_enigma.ponder.enigma_wrench_2.header": "神秘扳手",
+  "create_enigma.ponder.enigma_wrench.2a": "你从低语中抓住了一些启示，",
+  "create_enigma.ponder.enigma_wrench.2b": "神秘扳手的基质与扳手并无不同，",
+  "create_enigma.ponder.enigma_wrench.2c": "但它拥有更精密的构件。",
+  "create_enigma.ponder.enigma_wrench.2d": "你还解读出了一些信息，",
+  "create_enigma.ponder.enigma_wrench.2e": "%s",
+  "create_enigma.ponder.enigma_wrench.2f": "……但那是什么意思？",
   "advancement.create_enigma.root": "欢迎来到机械动力…？",
   "advancement.create_enigma.root.desc": "……你确定这是机械动力吗？"
 }
