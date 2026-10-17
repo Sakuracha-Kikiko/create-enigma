@@ -35,6 +35,7 @@
   "create_enigma.ponder.enigma_wrench_2.text_2": "the Enigma Wrench is no different from a Wrench in substance,",
   "create_enigma.ponder.enigma_wrench_2.text_3": "but it holds far more precise components.",
   "create_enigma.ponder.enigma_wrench_2.text_4": "You also make out some information:",
+  "create_enigma.ponder.enigma_wrench_2.text_5": "%s",
   "create_enigma.ponder.enigma_wrench_2.text_6": "...but what does that mean?",
   "advancement.create_enigma.root": "Welcome to Create...?",
   "advancement.create_enigma.root.desc": "...are you sure this is Create?"

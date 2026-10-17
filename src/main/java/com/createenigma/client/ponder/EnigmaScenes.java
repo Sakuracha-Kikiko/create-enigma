@@ -157,7 +157,14 @@ public final class EnigmaScenes {
         scene.idle(80);
 
         scene.addKeyframe();
-        text(scene, EnigmaCodeSyncClient.describe());
+        // The digits go through the lang entry's %s rather than being the displayed text: Ponder
+        // always resolves the positional key and shows it when untranslated, so a line with no entry
+        // prints "create_enigma.ponder.enigma_wrench_2.text_5" on screen. The first argument is a
+        // fallback that Ponder does not render; it is passed here only to keep the call readable.
+        scene.overlay().showText(60)
+                .text(EnigmaCodeSyncClient.describe(), EnigmaCodeSyncClient.describe())
+                .pointAt(new Vec3(2.5, 1.0, 2.5))
+                .placeNearTarget();
         scene.idle(80);
 
         text(scene, "……但那是什么意思？");
