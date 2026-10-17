@@ -11,16 +11,23 @@ import net.minecraft.world.phys.Vec3;
 /**
  * The machine as it was originally built, and the two scenes that teach how to make the wrench.
  *
- * <h2>Text goes through language keys, not literals</h2>
+ * <h2>How Ponder localises text</h2>
  *
- * <p>{@code TextElementBuilder.text(String, Object...)} resolves its first argument as a
- * translation key. Handing it the finished sentence - which is what The Ponderer's export does -
- * makes the scene print the sentence as its own key and fall back to nothing, so the words have to
- * live in a lang file and be named here.
+ * <p>The string handed to {@code text(...)} is a <b>fallback</b>, not a key. Ponder derives the key
+ * itself from the scene's title id and the line's position in it:
  *
- * <p>The digits are the one thing that cannot live in a lang file: they differ per world. They are
- * passed as a translation argument instead, which resolves on the client at draw time and keeps the
- * rest of the sentence translatable.
+ * <pre>
+ * scene.title("enigma_wrench_1", "...")   -&gt;  create_enigma.ponder.enigma_wrench_1.header
+ * first .text("...")                      -&gt;  create_enigma.ponder.enigma_wrench_1.text_1
+ * second                                  -&gt;  ...text_2
+ * </pre>
+ *
+ * <p>Passing a translation key as the fallback therefore prints the key on screen and nothing else,
+ * which is exactly what happened once. Write the sentence; put the translation in the lang file
+ * under the derived key if one is wanted, and it wins over the fallback.
+ *
+ * <p>The digits are the exception: they differ per world, so there is nothing to translate. They are
+ * passed as the fallback themselves, which means the line reads correctly with no lang entry at all.
  */
 public final class EnigmaScenes {
 
@@ -46,8 +53,6 @@ public final class EnigmaScenes {
      * to be found by comparing, not to be announced.
      */
     public static void firstOfAllMachines(SceneBuilder scene, SceneBuildingUtil util) {
-        // Not localised through a lang key alone: the string below is the fallback, and
-        // create_enigma.ponder.mojang_enigma_true.header is what actually gets displayed.
         scene.title("mojang_enigma_true", "神的作品，万机之首，厄尼格默");
         scene.setNextUpEnabled(false);
         scene.configureBasePlate(0, 0, 15);
@@ -113,10 +118,7 @@ public final class EnigmaScenes {
         scene.world().showSection(util.select().everywhere(), Direction.UP);
         scene.idle(20);
 
-        scene.overlay().showText(60)
-                .text("create_enigma.ponder.enigma_wrench.1a")
-                .pointAt(new Vec3(2.5, 1.0, 2.5))
-                .placeNearTarget();
+        text(scene, "若要呼唤伟大的万机之神……");
         scene.idle(80);
 
         scene.world().createItemEntity(new Vec3(2.5, 3.0, 2.5), new Vec3(0.0, 0.1, 0.0),
@@ -124,19 +126,17 @@ public final class EnigmaScenes {
         scene.idle(10);
 
         scene.addKeyframe();
-        scene.overlay().showText(60)
-                .text("create_enigma.ponder.enigma_wrench.1b")
-                .pointAt(new Vec3(2.5, 1.0, 2.5))
-                .placeNearTarget();
+        text(scene, "……需要先取得祂的遗物，神秘扳手。");
         scene.idle(20);
     }
 
     /**
      * Second wrench scene: what the wrench is made of, and this world's three numbers.
      *
-     * <p>The digits come from {@link EnigmaCodeSyncClient}, which the server fills in on login. The
-     * key they are passed to carries a {@code %s}, so the sentence around them stays translatable
-     * while the numbers are whatever this save's seed produced.
+     * <p>The digits come from {@link EnigmaCodeSyncClient}, which the server fills in on login. They
+     * are the fallback text itself rather than a translation argument: there is nothing about three
+     * digits that a language could translate, and a lang entry would only be a second place for them
+     * to go stale.
      */
     public static void theWrenchNumbers(SceneBuilder scene, SceneBuildingUtil util) {
         scene.title("enigma_wrench_2", "神秘扳手");
@@ -147,30 +147,27 @@ public final class EnigmaScenes {
                 new ItemStack(CEItems.ENIGMA_WRENCH.get()));
         scene.idle(10);
 
-        text(scene, "create_enigma.ponder.enigma_wrench.2a");
+        text(scene, "你从低语中抓住了一些启示，");
         scene.idle(80);
-        text(scene, "create_enigma.ponder.enigma_wrench.2b");
+        text(scene, "神秘扳手的基质与扳手并无不同，");
         scene.idle(80);
-        text(scene, "create_enigma.ponder.enigma_wrench.2c");
+        text(scene, "但它拥有更精密的构件。");
         scene.idle(80);
-        text(scene, "create_enigma.ponder.enigma_wrench.2d");
+        text(scene, "你还解读出了一些信息，");
         scene.idle(80);
 
         scene.addKeyframe();
-        scene.overlay().showText(60)
-                .text("create_enigma.ponder.enigma_wrench.2e", EnigmaCodeSyncClient.describe())
-                .pointAt(new Vec3(2.5, 1.0, 2.5))
-                .placeNearTarget();
+        text(scene, EnigmaCodeSyncClient.describe());
         scene.idle(80);
 
-        text(scene, "create_enigma.ponder.enigma_wrench.2f");
+        text(scene, "……但那是什么意思？");
         scene.idle(20);
     }
 
     /** Every text line in these scenes is the same shape; this keeps them from drifting apart. */
-    private static void text(SceneBuilder scene, String key) {
+    private static void text(SceneBuilder scene, String line) {
         scene.overlay().showText(60)
-                .text(key)
+                .text(line)
                 .pointAt(new Vec3(2.5, 1.0, 2.5))
                 .placeNearTarget();
     }
