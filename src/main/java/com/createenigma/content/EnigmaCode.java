@@ -32,9 +32,15 @@ public final class EnigmaCode {
     /**
      * How many progress values an incomplete precision mechanism can hold.
      *
-     * <p>Create stores the progress as a float and displays it as {@code round(progress * 13)}, so
-     * the visible steps are 0 through 13 inclusive - fourteen of them, not the "1 to 14" the progress
-     * bar suggests.
+     * <p>Create stores the progress as a float and displays it as {@code round(progress * 13)}, so the
+     * underlying steps are 0 through 13 - fourteen of them. The number a player ever sees is that plus
+     * one: the first assembly step turns a gold sheet into an intermediate showing 1/15, and the
+     * fifteenth resolves it into a finished mechanism, so 0/15 and 15/15 never exist in play.
+     *
+     * <p>Everything above this class therefore speaks in the <b>player's</b> numbers, 1 to 14. The
+     * recipe subtracts the one back off before comparing against the stored progress. Getting this
+     * backwards is silent: the scene would say 3 and the recipe would want 2, and nothing would ever
+     * craft.
      */
     public static final int STEPS = 14;
 
@@ -56,7 +62,7 @@ public final class EnigmaCode {
             third = random.nextInt(STEPS);
         } while (third == first || third == second);
 
-        return new int[] {first, second, third};
+        return new int[] {first + 1, second + 1, third + 1};
     }
 
     private static int nextDistinct(Random random, int differentFrom) {

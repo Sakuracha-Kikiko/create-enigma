@@ -119,9 +119,13 @@ public class EnigmaWrenchRecipe implements CraftingRecipe {
     /**
      * Whether a slot holds an incomplete precision mechanism at exactly the wanted step.
      *
-     * <p>Create stores the progress as a float and displays it as {@code round(progress * 13)}, so the
-     * visible steps are 0 to 13. The same rounding is used here, so what the player sees on the item's
-     * bar is what the recipe compares.
+     * <p>Create stores the progress as a float and displays it as {@code round(progress * 13)}, which
+     * runs 0 to 13, while the number a player reads is one higher: the first assembly step produces a
+     * 1/15 intermediate and the fifteenth finishes it, so the reachable display values are 1 to 14.
+     * {@link EnigmaCode} speaks in those displayed numbers, so the one is added back here.
+     *
+     * <p>An off-by-one in this expression is the worst kind of bug this mod can have: the scene says
+     * 3, the player builds 3, and the recipe silently wants 2.
      */
     private static boolean isIntermediateAt(CraftingInput input, int x, int y, int wanted) {
         ItemStack stack = input.getItem(y, x);
@@ -131,7 +135,7 @@ public class EnigmaWrenchRecipe implements CraftingRecipe {
         if (!stack.is(AllItems.INCOMPLETE_PRECISION_MECHANISM.get())) {
             return false;
         }
-        return Math.round(item.getProgress(stack) * 13) == wanted;
+        return Math.round(item.getProgress(stack) * 13) + 1 == wanted;
     }
 
     @Override
