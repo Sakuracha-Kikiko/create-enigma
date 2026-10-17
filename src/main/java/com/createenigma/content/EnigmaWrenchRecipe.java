@@ -67,14 +67,52 @@ public class EnigmaWrenchRecipe implements CraftingRecipe {
     public boolean matches(CraftingInput input, Level level) {
         // A shaped recipe may sit anywhere in a larger grid, so every offset is tried. In a 3x3
         // grid a two-by-three pattern has exactly two possible positions.
-        for (int x = 0; x + WIDTH <= input.width(); x++) {
-            for (int y = 0; y + HEIGHT <= input.height(); y++) {
-                if (matchesAt(input, level, x, y)) {
-                    return true;
+        boolean matched = false;
+        for (int x = 0; x + WIDTH <= input.width() && !matched; x++) {
+            for (int y = 0; y + HEIGHT <= input.height() && !matched; y++) {
+                matched = matchesAt(input, level, x, y);
+            }
+        }
+
+        // Diagnostic, and deliberately loud. A recipe that refuses a correct grid gives the player
+        // nothing at all - no result, no message - so this prints the grid, what the recipe wanted,
+        // and the step each mechanism actually reads as.
+        if (!input.isEmpty() && !matched) {
+            com.mojang.logging.LogUtils.getLogger().info(
+                    "Enigma recipe: refused grid={} wanted={} steps={}",
+                    describeGrid(input),
+                    java.util.Arrays.toString(EnigmaCodeState.progresses(level)),
+                    describeSteps(input));
+        }
+        return matched;
+    }
+
+    private static String describeGrid(CraftingInput input) {
+        StringBuilder text = new StringBuilder(input.width() + "x" + input.height() + " [");
+        for (int y = 0; y < input.height(); y++) {
+            for (int x = 0; x < input.width(); x++) {
+                if (x > 0) {
+                    text.append(", ");
+                }
+                ItemStack stack = input.getItem(y, x);
+                text.append(stack.isEmpty() ? "-" : stack.getItem().toString());
+            }
+            text.append(" | ");
+        }
+        return text.append(']').toString();
+    }
+
+    private static String describeSteps(CraftingInput input) {
+        StringBuilder text = new StringBuilder("[");
+        for (int y = 0; y < input.height(); y++) {
+            for (int x = 0; x < input.width(); x++) {
+                ItemStack stack = input.getItem(y, x);
+                if (stack.getItem() instanceof SequencedAssemblyItem item) {
+                    text.append(Math.round(item.getProgress(stack) * 13) + 1).append(' ');
                 }
             }
         }
-        return false;
+        return text.append(']').toString();
     }
 
     /**
