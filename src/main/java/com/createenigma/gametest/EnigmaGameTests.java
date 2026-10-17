@@ -14,6 +14,7 @@ import com.createenigma.content.EnigmaCoreBlock;
 import com.createenigma.registry.CEBlocks;
 import com.createenigma.registry.CEItems;
 import com.createenigma.structure.BlockStateMatcher;
+import com.createenigma.content.EnigmaWrenchRecipe;
 import com.createenigma.structure.EnigmaSchematic;
 import com.createenigma.structure.EnigmaStructure;
 import com.createenigma.structure.EnigmaStructure.Generation;
@@ -21,6 +22,7 @@ import com.createenigma.structure.EnigmaValidator;
 import com.mojang.logging.LogUtils;
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.AllDataComponents;
+import com.simibubi.create.AllItems;
 import com.simibubi.create.content.decoration.palettes.AllPaletteBlocks;
 import com.simibubi.create.content.kinetics.belt.BeltBlock;
 import com.simibubi.create.content.kinetics.belt.BeltPart;
@@ -672,12 +674,31 @@ public class EnigmaGameTests {
         RecipeHolder<?> holder = recipes.byKey(id).orElse(null);
         helper.assertTrue(holder != null, "recipe " + id + " did not load");
 
-        helper.assertTrue(holder.value() instanceof ShapedRecipe,
-                "expected a shaped recipe, found " + holder.value().getClass().getSimpleName());
+        helper.assertTrue(holder.value() instanceof EnigmaWrenchRecipe,
+                "expected the Enigma Wrench recipe, found " + holder.value().getClass().getSimpleName());
 
         ItemStack result = holder.value().getResultItem(helper.getLevel().registryAccess());
         helper.assertTrue(result.is(CEItems.ENIGMA_WRENCH.get()),
                 "the recipe produces " + result + " instead of the Enigma Wrench");
+
+        // The skeleton JEI draws must name the intermediates by item alone. If a progress ever
+        // appears in getIngredients, the recipe viewer answers the puzzle the scene poses.
+        var ingredients = holder.value().getIngredients();
+        helper.assertTrue(ingredients.size() == 5, "expected five ingredients, got " + ingredients.size());
+        for (int i = 0; i < 3; i++) {
+            helper.assertTrue(
+                    ingredients.get(i).test(new ItemStack(AllItems.INCOMPLETE_PRECISION_MECHANISM.get())),
+                    "ingredient " + i + " does not accept an incomplete precision mechanism");
+        }
+        helper.assertTrue(ingredients.get(3).test(new ItemStack(AllBlocks.COGWHEEL.get().asItem())),
+                "the fourth ingredient does not accept a cogwheel");
+        helper.assertTrue(ingredients.get(4).test(new ItemStack(net.minecraft.world.item.Items.STICK)),
+                "the fifth ingredient does not accept a wooden rod");
+
+        // JEI skips recipes whose isSpecial is true, so this single word decides whether the
+        // skeleton is visible at all.
+        helper.assertTrue(!holder.value().isSpecial(),
+                "the recipe reports itself as special, which hides it from JEI");
 
         helper.succeed();
     }

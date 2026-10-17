@@ -1,5 +1,6 @@
 package com.createenigma.client.ponder;
 
+import com.createenigma.content.EnigmaCodeState;
 import com.createenigma.registry.CEItems;
 
 import net.createmod.ponder.api.scene.SceneBuilder;
@@ -162,7 +163,7 @@ public final class EnigmaScenes {
         // prints "create_enigma.ponder.enigma_wrench_2.text_5" on screen. The first argument is a
         // fallback that Ponder does not render; it is passed here only to keep the call readable.
         scene.overlay().showText(60)
-                .text(EnigmaCodeSyncClient.describe(), EnigmaCodeSyncClient.describe())
+                .text(EnigmaCodeState.describe(null), EnigmaCodeState.describe(null))
                 .pointAt(new Vec3(2.5, 1.0, 2.5))
                 .placeNearTarget();
         scene.idle(80);

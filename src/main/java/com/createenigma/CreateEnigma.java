@@ -4,6 +4,7 @@ import com.createenigma.registry.CEBlockEntities;
 import com.createenigma.registry.CEBlocks;
 import com.createenigma.registry.CECreativeTabs;
 import com.createenigma.registry.CEItems;
+import com.createenigma.registry.CERecipes;
 import com.simibubi.create.foundation.data.CreateRegistrate;
 
 import net.minecraft.resources.ResourceKey;
@@ -43,6 +44,7 @@ public class CreateEnigma {
         CEBlocks.register();
         CEBlockEntities.register();
         CEItems.register();
+        CERecipes.register(modBus);
         CECreativeTabs.register(modBus);
     }
 }
