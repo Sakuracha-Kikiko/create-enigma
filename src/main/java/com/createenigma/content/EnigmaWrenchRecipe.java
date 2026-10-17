@@ -102,14 +102,17 @@ public class EnigmaWrenchRecipe implements CraftingRecipe {
             return false;
         }
 
-        // Every cell the pattern does not cover has to be empty, or a grid with extra items would
-        // count as a match.
+        // Every cell the pattern does not fill has to be empty, or a grid with extra items would
+        // count as a match. Inside the two-by-three box exactly one cell is blank: the bottom left,
+        // because the bottom row of the pattern is " S".
         for (int cx = 0; cx < input.width(); cx++) {
             for (int cy = 0; cy < input.height(); cy++) {
-                boolean onPattern = cx >= x && cx < x + WIDTH && cy >= y && cy < y + HEIGHT
-                        && !(cx == x + 1 && cy == y + 2);
-                if (!onPattern && !input.getItem(cy, cx).isEmpty()) {
-                    return false;
+                boolean inBox = cx >= x && cx < x + WIDTH && cy >= y && cy < y + HEIGHT;
+                boolean blankInPattern = inBox && cx == x && cy == y + 2;
+                if (!inBox || blankInPattern) {
+                    if (!input.getItem(cy, cx).isEmpty()) {
+                        return false;
+                    }
                 }
             }
         }
