@@ -671,6 +671,43 @@ public class EnigmaGameTests {
                 child.id() + " does not declare " + parent + " as its parent");
     }
 
+    /**
+     * The two trigger-driven advancements, checked for the thing that makes them work.
+     *
+     * <p>Unlike the chain above them these are not awarded from code - they carry real vanilla
+     * triggers in their json. Asserting only that the file loaded would pass even if the trigger were
+     * misspelled, because an advancement with a bogus criteria key still parses. So this checks the
+     * <b>trigger type</b>: a crafted recipe and an inventory change. Those are the two the mod relies
+     * on, and a typo in {@code recipe_id} or in the item id shows up here rather than as an
+     * advancement that silently never fires.
+     */
+    @GameTest(template = TEMPLATE)
+    public static void triggerAdvancementsUseRealTriggers(GameTestHelper helper) {
+        var manager = helper.getLevel().getServer().getAdvancements();
+
+        AdvancementHolder glance = manager.get(EnigmaAdvancements.GODS_GLANCE);
+        helper.assertTrue(glance != null, "advancement " + EnigmaAdvancements.GODS_GLANCE + " did not load");
+        assertParent(helper, glance, EnigmaAdvancements.ENIGMA);
+        helper.assertTrue(glance.value().criteria().containsKey("crafted"),
+                "gods_glance does not declare the 'crafted' criterion");
+        helper.assertTrue(
+                glance.value().criteria().get("crafted").trigger()
+                        instanceof net.minecraft.advancements.critereon.RecipeCraftedTrigger,
+                "gods_glance does not use recipe_crafted; it would never fire on crafting the wrench");
+
+        AdvancementHolder grace = manager.get(EnigmaAdvancements.MYSTIC_GRACE);
+        helper.assertTrue(grace != null, "advancement " + EnigmaAdvancements.MYSTIC_GRACE + " did not load");
+        assertParent(helper, grace, EnigmaAdvancements.MYSTIC_AGE);
+        helper.assertTrue(grace.value().criteria().containsKey("obtained"),
+                "mystic_grace does not declare the 'obtained' criterion");
+        helper.assertTrue(
+                grace.value().criteria().get("obtained").trigger()
+                        instanceof net.minecraft.advancements.critereon.InventoryChangeTrigger,
+                "mystic_grace does not use inventory_changed; it would never fire on obtaining the crank");
+
+        helper.succeed();
+    }
+
     // --------------------------------------------------------------------------------
     // The wrench, which so far is only a recipe and a tooltip.
     //

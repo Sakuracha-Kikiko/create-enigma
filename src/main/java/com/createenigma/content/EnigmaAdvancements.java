@@ -61,6 +61,28 @@ public final class EnigmaAdvancements {
             ResourceLocation.fromNamespaceAndPath(CreateEnigma.MOD_ID, "mystic_age");
 
     /**
+     * 万机之神的侧目 - crafting the Enigma Wrench.
+     *
+     * <p>Sits under {@code enigma}, and unlike the four before it this one is <b>not</b> awarded from
+     * code: its file uses {@code minecraft:recipe_crafted} with
+     * {@code recipe_id: create_enigma:enigma_wrench}, so the game fires it itself the moment that
+     * recipe produces a result. No hook, no tick check, and it cannot fire for anything else.
+     */
+    public static final ResourceLocation GODS_GLANCE =
+            ResourceLocation.fromNamespaceAndPath(CreateEnigma.MOD_ID, "gods_glance");
+
+    /**
+     * 神秘恩典 - obtaining the creative hand crank.
+     *
+     * <p>Sits under {@code mystic_age}. Also trigger-driven: {@code minecraft:inventory_changed}
+     * watching for the item, because the crank has no recipe yet. Once one exists this can move to
+     * {@code recipe_crafted} exactly like {@link #GODS_GLANCE}; the only thing that changes is the
+     * criteria block in the json.
+     */
+    public static final ResourceLocation MYSTIC_GRACE =
+            ResourceLocation.fromNamespaceAndPath(CreateEnigma.MOD_ID, "mystic_grace");
+
+    /**
      * The criterion key every advancement file declares.
      *
      * <p>Public so the GameTest can assert the files really declare it. {@code award()} returns

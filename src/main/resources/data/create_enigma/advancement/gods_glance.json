@@ -1,0 +1,32 @@
+{
+  "parent": "create_enigma:enigma",
+  "criteria": {
+    "crafted": {
+      "trigger": "minecraft:recipe_crafted",
+      "conditions": {
+        "recipe_id": "create_enigma:enigma_wrench"
+      }
+    }
+  },
+  "display": {
+    "announce_to_chat": true,
+    "description": {
+      "translate": "advancement.create_enigma.gods_glance.description"
+    },
+    "frame": "task",
+    "hidden": true,
+    "icon": {
+      "count": 1,
+      "id": "create_enigma:enigma_wrench"
+    },
+    "title": {
+      "translate": "advancement.create_enigma.gods_glance.title"
+    }
+  },
+  "requirements": [
+    [
+      "crafted"
+    ]
+  ],
+  "sends_telemetry_event": true
+}
