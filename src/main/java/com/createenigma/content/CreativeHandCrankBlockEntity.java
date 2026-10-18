@@ -1,13 +1,19 @@
 package com.createenigma.content;
 
+import com.createenigma.client.EnigmaPartialModels;
 import com.createenigma.registry.CEBlocks;
+import com.simibubi.create.content.kinetics.crank.HandCrankBlock;
+import com.simibubi.create.content.kinetics.crank.HandCrankBlockEntity;
 
+import net.createmod.catnip.render.CachedBuffers;
+import net.createmod.catnip.render.SuperByteBuffer;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-
-import com.simibubi.create.content.kinetics.crank.HandCrankBlockEntity;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
 
 /**
  * The block entity behind 创造手摇曲柄, and the only reason it exists is one hardcoded lookup.
@@ -57,5 +63,37 @@ public class CreativeHandCrankBlockEntity extends HandCrankBlockEntity {
     @Override
     protected Block getStressConfigKey() {
         return CEBlocks.CREATIVE_HAND_CRANK.get();
+    }
+
+    /**
+     * The arm as drawn by the block entity renderer, which is the path a Ponder scene uses.
+     *
+     * <h2>Why this is needed, and why the block looked like Create's even when it was ours</h2>
+     *
+     * <p>{@code HandCrankBlock.getRenderShape} returns {@code ENTITYBLOCK_ANIMATED}, so the block
+     * model is never drawn - the arm and base come from a renderer. There are two of them:
+     *
+     * <ul>
+     *   <li>in a real world, Flywheel visualisation is available, {@code HandCrankRenderer.renderSafe}
+     *       returns early, and {@code CreativeHandCrankVisual} draws everything;</li>
+     *   <li>in a Ponder scene Flywheel is not driving anything, so the early return does not fire and
+     *       {@code HandCrankRenderer} draws the arm through this method.</li>
+     * </ul>
+     *
+     * <p>The inherited version returns Create's own {@code HAND_CRANK_HANDLE}, which names Create's
+     * texture - so a Ponder scene showed the vanilla crank no matter which block was placed, and even
+     * replacing the block inside the scene changed nothing. That is the whole mystery: the renderer
+     * was never asking the block what it looked like.
+     *
+     * <p>{@code @OnlyIn(Dist.CLIENT)} is required and is what keeps this safe: the method is only
+     * called on a client, and NeoForge's dist cleaner allows client types inside a method marked this
+     * way. The dedicated-server gametest is the check that it stays that way.
+     */
+    @OnlyIn(Dist.CLIENT)
+    @Override
+    public SuperByteBuffer getRenderedHandle() {
+        BlockState state = getBlockState();
+        Direction facing = state.getOptionalValue(HandCrankBlock.FACING).orElse(Direction.UP);
+        return CachedBuffers.partialFacing(EnigmaPartialModels.CRANK_HANDLE, state, facing.getOpposite());
     }
 }
