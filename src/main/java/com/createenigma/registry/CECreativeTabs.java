@@ -28,6 +28,7 @@ public class CECreativeTabs {
                     .displayItems((parameters, output) -> {
                         output.accept(CEBlocks.ENIGMA_CORE.asItem());
                         output.accept(CEBlocks.DISGUISED_MOTOR.asItem());
+                        output.accept(CEBlocks.CREATIVE_HAND_CRANK.asItem());
                         output.accept(CEItems.ENIGMA_WRENCH.asItem());
                         output.accept(EnigmaSchematic.blueprintStack());
                     })

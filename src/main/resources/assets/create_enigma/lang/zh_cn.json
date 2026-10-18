@@ -2,6 +2,7 @@
   "itemGroup.create_enigma.base": "机械动力：神秘机械",
   "block.create_enigma.enigma_core": "谜之核心",
   "block.create_enigma.disguised_motor": "伪装创造马达",
+  "block.create_enigma.creative_hand_crank": "创造手摇曲柄",
   "create_enigma.disguised_motor.summary": "俺寻思这是创造马达。",
   "create_enigma.disguised_motor.aside": "但是寻思有什么用呢？",
   "item.create_enigma.enigma_wrench": "神秘扳手",

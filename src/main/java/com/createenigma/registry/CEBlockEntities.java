@@ -5,6 +5,9 @@ import com.createenigma.content.DisguisedMotorBlockEntity;
 import com.createenigma.content.EnigmaCoreBlockEntity;
 import com.simibubi.create.AllPartialModels;
 import com.simibubi.create.content.kinetics.base.OrientedRotatingVisual;
+import com.simibubi.create.content.kinetics.crank.HandCrankBlockEntity;
+import com.simibubi.create.content.kinetics.crank.HandCrankRenderer;
+import com.simibubi.create.content.kinetics.crank.HandCrankVisual;
 import com.simibubi.create.content.kinetics.motor.CreativeMotorRenderer;
 import com.tterrag.registrate.util.entry.BlockEntityEntry;
 
@@ -33,6 +36,29 @@ public class CEBlockEntities {
                     .visual(() -> OrientedRotatingVisual.of(AllPartialModels.SHAFT_HALF), false)
                     .validBlocks(CEBlocks.DISGUISED_MOTOR)
                     .renderer(() -> CreativeMotorRenderer::new)
+                    .register();
+
+    /**
+     * The creative hand crank, borrowing Create's whole visual chain.
+     *
+     * <p>{@code HandCrankBlockEntity} is used unchanged: the 16384 stress units do not live in the
+     * block entity but in {@code BlockStressValues}, keyed by block, so the block entry supplies it
+     * and the behaviour here is Create's original crank.
+     *
+     * <p>Both halves of the rendering are Create's, registered for our type. The arm is animated by
+     * {@link HandCrankVisual} - a Flywheel visual, which is why it can turn without a block state
+     * change - and {@link HandCrankRenderer} is the older path that draws the same arm through
+     * {@code HandCrankBlockEntity.getRenderedHandle()}. Registering both mirrors what Create does for
+     * its own crank and keeps the fallback intact.
+     *
+     * <p>On plain servers {@code HandCrankVisual} is client-only; it is only ever named inside the
+     * supplier, which runs during client setup, and never while the block entity type is registered.
+     */
+    public static final BlockEntityEntry<HandCrankBlockEntity> CREATIVE_HAND_CRANK =
+            CreateEnigma.registrate().blockEntity("creative_hand_crank", HandCrankBlockEntity::new)
+                    .visual(() -> HandCrankVisual::new, false)
+                    .validBlocks(CEBlocks.CREATIVE_HAND_CRANK)
+                    .renderer(() -> HandCrankRenderer::new)
                     .register();
 
     public static void register() {

@@ -5,6 +5,7 @@ import static com.simibubi.create.foundation.data.TagGen.axeOrPickaxe;
 import static com.simibubi.create.foundation.data.TagGen.pickaxeOnly;
 
 import com.createenigma.CreateEnigma;
+import com.createenigma.content.CreativeHandCrankBlock;
 import com.createenigma.content.DisguisedMotorBlock;
 import com.createenigma.content.EnigmaCoreBlock;
 import com.simibubi.create.api.stress.BlockStressValues;
@@ -71,6 +72,37 @@ public class CEBlocks {
                             .forceSolidOn())
                     .transform(pickaxeOnly())
                     .onRegister(BlockStressValues.setGeneratorSpeed(256, true))
+                    .item()
+                    .properties(p -> p.rarity(Rarity.EPIC))
+                    .transform(customItemModel())
+                    .register();
+
+    /**
+     * 创造手摇曲柄 / Creative Hand Crank
+     *
+     * <p>Create's hand crank, with the stress value changed from 8 to 16384 per RPM.
+     *
+     * <p><b>The whole difference is one registration.</b> {@code BlockStressValues.CAPACITIES} is a
+     * public registry keyed by block, so a different block is a different key and needs no subclass
+     * to override anything. {@link BlockStressValues#getCapacity} then answers 16384 for this block
+     * where Create's config answers 8 for theirs, and the crank's generated capacity follows
+     * {@code speed * value} exactly as Create's does - 16384 per RPM at 32 RPM.
+     *
+     * <p>The alternative, overriding {@code calculateAddedStressCapacity} on the block entity, is
+     * what {@code DisguisedMotorBlockEntity} does - but only because that block needed a <em>fixed</em>
+     * capacity rather than a per-RPM one. Here the per-RPM scaling is the behaviour being kept, so the
+     * registry is the right lever.
+     *
+     * <p>The appearance is Create's on purpose: the blockstate and models point at Create's crank
+     * models, and the arm is drawn by Create's own visual. Recolouring it would mean copying that
+     * visual just to change which model it names - a separate decision, not a palette swap.
+     */
+    public static final BlockEntry<CreativeHandCrankBlock> CREATIVE_HAND_CRANK =
+            CreateEnigma.registrate().block("creative_hand_crank", CreativeHandCrankBlock::new)
+                    .initialProperties(SharedProperties::stone)
+                    .properties(p -> p.mapColor(MapColor.COLOR_PURPLE))
+                    .transform(pickaxeOnly())
+                    .onRegister(block -> BlockStressValues.CAPACITIES.register(block, () -> 16384.0))
                     .item()
                     .properties(p -> p.rarity(Rarity.EPIC))
                     .transform(customItemModel())

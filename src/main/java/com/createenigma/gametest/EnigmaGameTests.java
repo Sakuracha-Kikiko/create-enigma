@@ -12,6 +12,7 @@ import com.createenigma.CreateEnigma;
 import com.createenigma.content.EnigmaAdvancements;
 import com.createenigma.content.EnigmaCodeState;
 import com.createenigma.content.EnigmaCoreBlock;
+import com.createenigma.registry.CEBlockEntities;
 import com.createenigma.registry.CEBlocks;
 import com.createenigma.registry.CEItems;
 import com.createenigma.structure.BlockStateMatcher;
@@ -25,6 +26,8 @@ import com.mojang.logging.LogUtils;
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.AllDataComponents;
 import com.simibubi.create.AllItems;
+import com.simibubi.create.api.stress.BlockStressValues;
+import com.simibubi.create.content.kinetics.crank.HandCrankBlock;
 import com.simibubi.create.content.decoration.palettes.AllPaletteBlocks;
 import com.simibubi.create.content.kinetics.belt.BeltBlock;
 import com.simibubi.create.content.kinetics.belt.BeltPart;
@@ -60,6 +63,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.SlabBlock;
 import net.minecraft.world.level.block.SnowyDirtBlock;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.Property;
@@ -864,6 +868,46 @@ public class EnigmaGameTests {
         helper.assertTrue(
                 MechanismStep.of(new ItemStack(AllItems.INCOMPLETE_PRECISION_MECHANISM.get())) == 0,
                 "a mechanism carrying no assembly component does not read as 0");
+
+        helper.succeed();
+    }
+
+    /**
+     * The creative hand crank differs from Create's by one number, and that number is the whole
+     * feature - so it gets its own test rather than being assumed.
+     *
+     * <p>{@code BlockStressValues} is keyed by block, so the assertion below is also the evidence
+     * that a differently-valued crank can exist at all: the same lookup answers 8 for Create's block
+     * and 16384 for ours, side by side. If Create ever changes the key to a class or a config topic,
+     * this fails loudly instead of silently handing the crank Create's value.
+     */
+    @GameTest(template = TEMPLATE)
+    public static void creativeHandCrankProvidesCreativeStress(GameTestHelper helper) {
+        HandCrankBlock ours = CEBlocks.CREATIVE_HAND_CRANK.get();
+        HandCrankBlock theirs = AllBlocks.HAND_CRANK.get();
+
+        double ours_ = BlockStressValues.getCapacity(ours);
+        double theirs_ = BlockStressValues.getCapacity(theirs);
+
+        helper.assertTrue(ours_ == 16384.0,
+                "the creative hand crank provides " + ours_ + " su/RPM, expected 16384");
+        helper.assertTrue(theirs_ == 8.0,
+                "Create's hand crank now provides " + theirs_ + " su/RPM, expected 8 - the two lookups"
+                        + " are not independent any more");
+
+        // A block entity type lists the blocks it may appear on. Ours must list ours and only ours,
+        // or placing the block creates no block entity and nothing turns.
+        BlockEntityType<?> type = CEBlockEntities.CREATIVE_HAND_CRANK.get();
+        helper.assertTrue(type.isValid(ours.defaultBlockState()),
+                "the creative hand crank's block entity type does not accept its own block");
+        helper.assertTrue(!type.isValid(theirs.defaultBlockState()),
+                "the creative hand crank's block entity type also accepts Create's crank, so the two"
+                        + " blocks are not distinguishable by it");
+
+        // Everything else is meant to be Create's, unchanged.
+        helper.assertTrue(ours.getRotationSpeed() == theirs.getRotationSpeed(),
+                "the crank turns at " + ours.getRotationSpeed() + " RPM but Create's turns at "
+                        + theirs.getRotationSpeed());
 
         helper.succeed();
     }
