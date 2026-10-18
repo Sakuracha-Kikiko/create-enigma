@@ -2,7 +2,6 @@ package com.createenigma.client;
 
 import java.util.function.Consumer;
 
-import com.createenigma.CreateEnigma;
 import com.createenigma.content.CreativeHandCrankBlockEntity;
 import com.simibubi.create.AllPartialModels;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntityVisual;
@@ -20,7 +19,6 @@ import dev.engine_room.flywheel.lib.visual.SimpleDynamicVisual;
 
 import net.createmod.catnip.math.AngleHelper;
 import net.minecraft.core.Direction;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
 import org.joml.Quaternionf;
@@ -51,9 +49,14 @@ import org.joml.Quaternionf;
 public class CreativeHandCrankVisual extends KineticBlockEntityVisual<CreativeHandCrankBlockEntity>
         implements SimpleDynamicVisual {
 
-    /** The arm: Create's geometry, this mod's textures. */
-    private static final PartialModel HANDLE = PartialModel.of(
-            ResourceLocation.fromNamespaceAndPath(CreateEnigma.MOD_ID, "block/creative_hand_crank/handle"));
+    /**
+     * The arm: Create's geometry, this mod's textures.
+     *
+     * <p>Lives in {@link EnigmaPartialModels} because a partial model has to exist before the model
+     * bake, and a field on this class would not be created until a crank is first drawn. See that
+     * class for the whole story; using a field here is what drew a missing-texture cube.
+     */
+    private static final PartialModel HANDLE = EnigmaPartialModels.CRANK_HANDLE;
 
     /**
      * The rotating base, still Create's.

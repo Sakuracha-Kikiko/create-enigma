@@ -33,6 +33,10 @@ public final class EnigmaClientSetup {
 
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
+        // Before the model bake, or the partial models have no baked model for the whole session and
+        // whatever uses them draws the missing model. See EnigmaPartialModels.
+        EnigmaPartialModels.init();
+
         LOGGER.info("Enigma ponder: adding plugin");
         PonderIndex.addPlugin(new EnigmaPonderPlugin());
     }
