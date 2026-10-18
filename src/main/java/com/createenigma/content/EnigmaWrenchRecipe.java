@@ -63,17 +63,19 @@ public class EnigmaWrenchRecipe implements CraftingRecipe {
     private static final TagKey<Item> WOODEN_RODS =
             TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath("c", "rods/wooden"));
 
+    /** Counts calls, so every query is distinguishable in the log. */
+    private static final java.util.concurrent.atomic.AtomicLong CALLS =
+            new java.util.concurrent.atomic.AtomicLong();
+
     @Override
     public boolean matches(CraftingInput input, Level level) {
-        // Logged on entry, before anything can throw. Logging only on the way out cannot tell
-        // "never called" apart from "called and blew up", and those two point at completely
-        // different problems.
-        if (countItems(input) >= 3) {
-            com.mojang.logging.LogUtils.getLogger().info(
-                    "Enigma recipe: entered {} grid={} wanted={}",
-                    input.width() + "x" + input.height(), describeGrid(input),
-                    java.util.Arrays.toString(EnigmaCodeState.progresses(level)));
-        }
+        // Unconditional and numbered. Every call leaves a trace, so "the recipe was never asked"
+        // and "the recipe said no" can no longer look the same in the log - which is exactly the
+        // distinction that several rounds of guesswork failed to make.
+        long call = CALLS.incrementAndGet();
+        com.mojang.logging.LogUtils.getLogger().info("Enigma recipe #{} {} grid={} wanted={}",
+                call, input.width() + "x" + input.height(), describeGrid(input),
+                java.util.Arrays.toString(EnigmaCodeState.progresses(level)));
 
         // A shaped recipe may sit anywhere in a larger grid, so every offset is tried. In a 3x3
         // grid a two-by-three pattern has exactly two possible positions.
