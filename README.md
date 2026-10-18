@@ -578,11 +578,28 @@ git config user.email "你的邮箱"
 `tools/PrepareEnigmaStructure.java` 转换成自己的结构模板（并做了若干修改，见第 2 节）。
 本模组分发的是转换后的产物，不是 Create 的文件。
 
-### 贴图 —— 按名引用，未重新分发
+### 贴图 —— 方块按名引用；扳手贴图是改色的衍生资源
 
 方块模型的材质直接引用 Create 的贴图路径（`create:block/andesite_casing`、
 `brass_casing`、`copper_casing`、`industrial_iron_block`），运行时由 Create 提供。
 本模组不包含这些图片文件。
+
+**唯一的例外：神秘扳手的贴图。**
+
+`assets/create_enigma/textures/item/enigma_wrench.png` 是对 Create 的
+`assets/create/textures/item/wrench.png` 做**色相映射**得到的衍生作品：
+
+* 原素材版权归 Create 团队所有，Create 以 MIT 许可发布 —— 出处与声明见 `THIRD-PARTY-NOTICES.md`
+* **只改了颜色**：金/棕的色相区间重映射到紫/紫红，明暗与透明度保持原样，
+  低饱和的金属色不动；图片仍是 16×16，每个 UV 区块的位置分毫未动
+* 必须复制而不能按名引用：扳手的**几何**我们仍然按名继承
+  （`create:item/wrench/item`、`create:item/wrench/gear`，一个字都没抄），
+  但模型本身没法给自己改色，换色就必须有自己的贴图文件
+* 要重新生成或调整色相：`tools/RecolourWrenchTexture.java`，参数在文件顶部
+
+> 为什么"只有颜色也能换出完全不同的观感"：Create 那张 16×16 其实是一张**调色板**，
+> 不是画好的图 —— 3D 形状全在模型的方块里，贴图只负责给每个 UV 区块提供一种颜色。
+> 所以改色不会错位，也不需要建模。
 
 ### 与 Mojang 和 Create 团队的关系
 

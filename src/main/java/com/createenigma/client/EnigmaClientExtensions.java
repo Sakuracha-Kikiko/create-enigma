@@ -2,7 +2,6 @@ package com.createenigma.client;
 
 import com.createenigma.CreateEnigma;
 import com.createenigma.registry.CEItems;
-import com.simibubi.create.content.equipment.wrench.WrenchItemRenderer;
 import com.simibubi.create.foundation.item.render.SimpleCustomRenderer;
 
 import net.minecraft.world.item.Item;
@@ -39,9 +38,8 @@ import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsE
  * which is what makes the item's baked model a {@code CustomRenderedItemModel} - the custom renderer
  * entry point hard-casts to that type.
  *
- * <p>Passing Create's renderer itself is deliberate for now. The gear is a separate model with its
- * own texture, so a recoloured wrench would still have a gold gear; giving both our own texture is
- * the next step and belongs with the model change rather than here.
+ * <p>The renderer is this mod's own ({@link EnigmaWrenchRenderer}) rather than Create's, because
+ * only a renderer written here can point the gear at this mod's texture.
  */
 @EventBusSubscriber(modid = CreateEnigma.MOD_ID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public final class EnigmaClientExtensions {
@@ -51,6 +49,6 @@ public final class EnigmaClientExtensions {
     @SubscribeEvent
     public static void registerItemRenderers(RegisterClientExtensionsEvent event) {
         Item wrench = CEItems.ENIGMA_WRENCH.get();
-        event.registerItem(SimpleCustomRenderer.create(wrench, new WrenchItemRenderer()), wrench);
+        event.registerItem(SimpleCustomRenderer.create(wrench, new EnigmaWrenchRenderer()), wrench);
     }
 }

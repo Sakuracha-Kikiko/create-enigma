@@ -1,3 +1,7 @@
 {
-  "parent": "create:item/wrench"
+  "parent": "create:item/wrench/item",
+  "textures": {
+    "5": "create_enigma:item/enigma_wrench",
+    "particle": "create_enigma:item/enigma_wrench"
+  }
 }

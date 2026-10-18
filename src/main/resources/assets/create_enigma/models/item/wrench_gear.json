@@ -1,0 +1,6 @@
+{
+  "parent": "create:item/wrench/gear",
+  "textures": {
+    "5": "create_enigma:item/enigma_wrench"
+  }
+}
