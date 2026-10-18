@@ -41,17 +41,25 @@ public final class EnigmaPonderUnlockWatcher {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    /** Last observed answer, so the reload fires once per change rather than once per tick. */
+    /** Last observed answers, so the reload fires once per change rather than once per tick. */
     private static boolean unlocked;
+
+    /** The crank's own gate: granted by obtaining the item, not by watching anything. */
+    private static boolean crankUnlocked;
 
     private EnigmaPonderUnlockWatcher() {}
 
     /**
-     * Whether the scenes should exist. Read during plugin registration, which happens on the
+     * Whether the wrench scenes should exist. Read during plugin registration, which happens on the
      * client thread - the same thread that writes {@link #unlocked}.
      */
     static boolean isUnlocked() {
         return unlocked;
+    }
+
+    /** Whether the crank's scene should exist. Same rules as {@link #isUnlocked()}. */
+    static boolean isCrankUnlocked() {
+        return crankUnlocked;
     }
 
     @SubscribeEvent
@@ -60,11 +68,15 @@ public final class EnigmaPonderUnlockWatcher {
         ClientPacketListener connection = minecraft.getConnection();
         if (connection == null) {
             unlocked = false;
+            crankUnlocked = false;
             return;
         }
 
+        // Two independent gates. A single flag was how this started, and it cannot express "this
+        // scene needs the wrench, that one needs the crank" - one of the two would appear early.
         boolean now = connection.getAdvancements().get(EnigmaAdvancements.ENIGMA) != null;
-        if (now == unlocked) {
+        boolean nowCrank = connection.getAdvancements().get(EnigmaAdvancements.MYSTIC_GRACE) != null;
+        if (now == unlocked && nowCrank == crankUnlocked) {
             return;
         }
 
@@ -74,7 +86,9 @@ public final class EnigmaPonderUnlockWatcher {
         }
 
         unlocked = now;
-        LOGGER.info("Enigma ponder: unlock state changed to {}; reloading the ponder index", now);
+        crankUnlocked = nowCrank;
+        LOGGER.info("Enigma ponder: unlock state changed to wrench={}, crank={}; reloading the ponder index",
+                now, nowCrank);
         PonderIndex.reload();
     }
 }

@@ -94,6 +94,21 @@ public class EnigmaPonderPlugin implements PonderPlugin {
     private static final ResourceLocation MOJANG_SCHEMATIC =
             ResourceLocation.fromNamespaceAndPath("create", "creative_motor_mojang");
 
+    /**
+     * 创造手摇曲柄, whose scene is earned by obtaining the item.
+     *
+     * <p>Gated separately from the wrench scenes: those want the {@code enigma} advancement, this one
+     * wants {@code mystic_grace}, which the game grants when the item reaches the inventory. Two
+     * separate answers, so two separate watcher flags - a single flag would have made one of the two
+     * scenes appear for the wrong reason.
+     */
+    private static final ResourceLocation CREATIVE_HAND_CRANK =
+            ResourceLocation.fromNamespaceAndPath(CreateEnigma.MOD_ID, "creative_hand_crank");
+
+    /** The crank's own five-by-four stage, shipped with the mod. */
+    private static final ResourceLocation CRANK_SCHEMATIC =
+            ResourceLocation.fromNamespaceAndPath(CreateEnigma.MOD_ID, "creative_hand_crank");
+
     @Override
     public String getModId() {
         return CreateEnigma.MOD_ID;
@@ -122,6 +137,13 @@ public class EnigmaPonderPlugin implements PonderPlugin {
         // reads. Only addTagToComponent - reached here through the addToTag(...).add(...)
         // builder - puts an item under a tag.
         helper.addToTag(ENIGMA_TAG).add(ENIGMA_WRENCH);
+
+        // The crank joins the same chapter, but only once it has been obtained. Filing it here
+        // rather than in registerScenes keeps the two gates in one place: an item with a storyboard
+        // but no tag has nowhere to appear, so both halves have to agree.
+        if (EnigmaPonderUnlockWatcher.isCrankUnlocked()) {
+            helper.addToTag(ENIGMA_TAG).add(CREATIVE_HAND_CRANK);
+        }
     }
 
     @Override
@@ -136,6 +158,13 @@ public class EnigmaPonderPlugin implements PonderPlugin {
         // Both scenes are staged on the same small platform; neither draws a structure of its own.
         helper.addStoryBoard(ENIGMA_WRENCH, FLOOR_SCHEMATIC, EnigmaScenes::callingTheMachine, ENIGMA_TAG);
         helper.addStoryBoard(ENIGMA_WRENCH, FLOOR_SCHEMATIC, EnigmaScenes::theWrenchNumbers, ENIGMA_TAG);
+
+        // Earned by obtaining the crank, so it has its own gate.
+        if (EnigmaPonderUnlockWatcher.isCrankUnlocked()) {
+            LOGGER.info("Enigma ponder: crank unlocked, registering its scene under tag {}", ENIGMA_TAG);
+            helper.addStoryBoard(CREATIVE_HAND_CRANK, CRANK_SCHEMATIC,
+                    EnigmaScenes::creativeHandCrank, ENIGMA_TAG);
+        }
 
         // Hidden for now, at the user's request, while the wrench scenes take its place. To bring it
         // back, this is the only line needed - the scene itself is untouched:

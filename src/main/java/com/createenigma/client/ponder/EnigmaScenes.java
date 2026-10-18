@@ -2,12 +2,20 @@ package com.createenigma.client.ponder;
 
 import com.createenigma.content.EnigmaCodeState;
 import com.createenigma.registry.CEItems;
+import com.simibubi.create.AllBlocks;
 
+import net.createmod.catnip.math.Pointing;
 import net.createmod.ponder.api.scene.SceneBuilder;
 import net.createmod.ponder.api.scene.SceneBuildingUtil;
+import net.createmod.ponder.api.scene.Selection;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.Vec3;
+
+import java.util.function.Consumer;
 
 /**
  * The machine as it was originally built, and the two scenes that teach how to make the wrench.
@@ -178,5 +186,173 @@ public final class EnigmaScenes {
                 .text(line)
                 .pointAt(new Vec3(2.5, 1.0, 2.5))
                 .placeNearTarget();
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // 创造手摇曲柄
+    //
+    // Written by hand from a Ponderer export rather than shipping the generated module: that
+    // export needed a 99 KB, 2186-line runtime support library for one 60-line scene, and the file
+    // header says it is overwritten on every export, which makes it a piece of the repository that
+    // can never be maintained. The exported scene was used as the specification instead - its step
+    // order, positions, durations and NBT are reproduced below.
+    //
+    // Ponderer is still the authoring tool. If the scene changes there, re-export and diff against
+    // this method; the shape of the diff is the instruction.
+    //
+    // Two things the export could express and Ponder's own API cannot:
+    //   · the layered structure reveal (Create's original reveals base, body and arm in turn).
+    //     Here the plate and the remaining layers are shown in two beats, which is close enough
+    //     that the arm still appears last on its own.
+    //   · kinetic speed. Ponder has no setKineticSpeed; the crank is driven by writing its
+    //     InUse/Backwards, which is the same state a player produces by holding right-click.
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * 创造手摇曲柄: the crank, turning faster than anything hand-driven should.
+     *
+     * <p>{@code InUse} is a countdown in ticks and is what makes the crank a generator; while it is
+     * positive {@code getGeneratedSpeed} returns ±32 and the whole network runs. {@code Backwards}
+     * picks the direction. That is why no speed is written on the crank itself - only on the shafts
+     * and the gauge column, which have nothing of their own.
+     *
+     * <p>The gauge column runs at twice the crank's speed and opposite to it, as in Create's own
+     * scene, and carries a {@code Network} tag because a gauge's needle is computed from
+     * stress/capacity rather than from speed.
+     */
+    public static void creativeHandCrank(SceneBuilder scene, SceneBuildingUtil util) {
+        scene.title("creative_hand_crank", "用创造手摇曲柄产生旋转力");
+        scene.configureBasePlate(0, 0, 5);
+        scene.showBasePlate();
+        scene.world().showSection(util.select().layersFrom(1), Direction.DOWN);
+        scene.idle(10);
+
+        Vec3 crank = new Vec3(2.5, 2.5, 2.5);
+        Vec3 side = new Vec3(2.0, 2.5, 2.5);
+
+        scene.overlay().showText(70)
+                .text("手摇曲柄可以让玩家手动施加旋转力")
+                .pointAt(new Vec3(2.5, 2.5, 2.0))
+                .placeNearTarget();
+        scene.idle(80);
+
+        scene.overlay().showControls(crank, Pointing.DOWN, 40).rightClick();
+        scene.idle(7);
+
+        // Counter-clockwise: Backwards = false.
+        crankNbt(scene, util, true);
+        scene.effects().indicateSuccess(new BlockPos(1, 3, 3));
+        scene.idle(10);
+
+        scene.addKeyframe();
+        scene.overlay().showText(50)
+                .text("按住右键，让它逆时针旋转")
+                .pointAt(side)
+                .placeNearTarget();
+        scene.idle(35);
+
+        // Stop before showing the other direction.
+        stopNbt(scene, util);
+        scene.idle(15);
+
+        // Clockwise: sneak and hold right-click.
+        scene.overlay().showControls(crank, Pointing.DOWN, 40).rightClick().whileSneaking();
+        scene.idle(7);
+
+        crankNbt(scene, util, false);
+        scene.effects().indicateSuccess(new BlockPos(1, 3, 3));
+        scene.idle(10);
+
+        scene.addKeyframe();
+        scene.overlay().showText(50)
+                .text("潜行并按住右键，让它顺时针旋转")
+                .pointAt(new Vec3(2.5, 2.5, 2.0))
+                .placeNearTarget();
+        scene.idle(35);
+
+        stopNbt(scene, util);
+        scene.idle(25);
+
+        // The comparison: a second gauge on top of the column.
+        scene.world().setBlock(new BlockPos(1, 4, 3), AllBlocks.STRESSOMETER.get().defaultBlockState(), true);
+        scene.overlay().showText(60)
+                .text("和手摇曲柄相比，创造手摇曲柄能提供大得多的旋转力")
+                .pointAt(new Vec3(1.5, 4.0, 3.5))
+                .placeNearTarget();
+        scene.idle(70);
+
+        scene.overlay().showControls(crank, Pointing.DOWN, 40).rightClick();
+        scene.idle(7);
+
+        crankNbt(scene, util, true);
+        scene.effects().indicateSuccess(new BlockPos(1, 3, 3));
+        scene.effects().indicateSuccess(new BlockPos(1, 4, 3));
+        scene.idle(10);
+
+        scene.addKeyframe();
+        scene.overlay().showText(50)
+                .text("按住右键，让它逆时针旋转")
+                .pointAt(side)
+                .placeNearTarget();
+        scene.idle(35);
+
+        stopNbt(scene, util);
+        scene.idle(20);
+    }
+
+    /** Crank driving the network, shafts following it, gauge column at twice the speed, reversed. */
+    private static void crankNbt(SceneBuilder scene, SceneBuildingUtil util, boolean counterClockwise) {
+        float speed = counterClockwise ? 32f : -32f;
+        modify(scene, util.select().fromTo(2, 2, 2, 2, 2, 2), tag -> {
+            tag.putInt("InUse", 600);
+            tag.putBoolean("Backwards", !counterClockwise);
+            tag.putFloat("Speed", speed);
+        });
+        modify(scene, util.select().fromTo(2, 1, 2, 2, 1, 2), tag -> tag.putFloat("Speed", speed));
+        // Create's own scene runs this column at f * -2.
+        modify(scene, util.select().fromTo(1, 1, 3, 1, 3, 3), tag -> {
+            tag.putFloat("Speed", speed * -2f);
+            network(tag);
+        });
+    }
+
+    /** Everything back to rest, so the next direction starts from a still machine. */
+    private static void stopNbt(SceneBuilder scene, SceneBuildingUtil util) {
+        modify(scene, util.select().fromTo(2, 2, 2, 2, 2, 2), tag -> {
+            tag.putInt("InUse", 0);
+            tag.putFloat("Speed", 0f);
+        });
+        modify(scene, util.select().fromTo(2, 1, 2, 2, 1, 2), tag -> tag.putFloat("Speed", 0f));
+        modify(scene, util.select().fromTo(1, 1, 3, 1, 3, 3), tag -> {
+            tag.putFloat("Speed", 0f);
+            network(tag);
+        });
+    }
+
+    /**
+     * A plausible network for the gauges to read.
+     *
+     * <p>{@code Stress 0} of {@code Capacity 256} is the hand crank's own figure at 32 RPM, so a
+     * stressometer shows a sensible needle instead of nothing. All members share one {@code Id}, or
+     * they are not one network.
+     */
+    private static void network(CompoundTag tag) {
+        CompoundTag network = new CompoundTag();
+        network.putLong("Id", 1L);
+        network.putFloat("Stress", 0.0f);
+        network.putFloat("Capacity", 256.0f);
+        network.putInt("Size", 4);
+        tag.put("Network", network);
+    }
+
+    /**
+     * Writes block entity data, with redraw on.
+     *
+     * <p>Redraw is what makes a changed {@code Speed} visible: the crank's arm recomputes its angle
+     * every frame, but a shaft is a Flywheel instance that is only set up again when asked. Without
+     * it the numbers change and the shafts keep turning as they were - or stand still.
+     */
+    private static void modify(SceneBuilder scene, Selection selection, Consumer<CompoundTag> patch) {
+        scene.world().modifyBlockEntityNBT(selection, BlockEntity.class, patch, true);
     }
 }
