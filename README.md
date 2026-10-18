@@ -751,22 +751,78 @@ Watched create:creative_motor_mojang; asking the server for the advancement
 
 ## 12. 神秘扳手（Enigma Wrench）
 
-**目前只是一个物品 + 一条配方 + 一条概要，没有任何功能。** 先做出来是为了看效果。
+**一把工具 + 一条配方 + 一条概要。** 右键箱子有五档反馈，见 §15。
 
 ### 配方
 
-框架和 Create 原版扳手一致，三处不同：
+**形状就是 Create 原版扳手，只把金板换掉。**
 
-| | Create 原版扳手 | 神秘扳手 |
+```
+M M        M = 未完成精密构件（进度必须是本世界的三个数之一）
+M C        C = create:cogwheel 齿轮
+  S        S = c:rods/wooden 木棍
+```
+
+- 三个 `M` **是有顺序的**：左上、右上、左中的进度依次等于场景里念出的三个数
+- 顺序放反、或者任意一个差一步，都**不合**。没有"接近了"这种反馈，结果格就是空的
+- 那三个数由世界种子算出（`EnigmaCode`），在思索场景里以三位数字给出
+
+#### ⚠️ 声明的松，匹配的紧
+
+`getIngredients()` 只写"任何未完成精密构件"，**不带任何进度** —— 这是 JEI 画的东西，
+所以配方查看器只显示骨架，不会直接把答案送出去。真正的判断在 `matches()` 里。
+
+两者**故意不一致**，那个缺口就是整个玩法。
+
+#### ⚠️ 它必须是一个 `ShapedRecipe`
+
+这条踩了很久，两个 JEI 的 bug 是**同一个原因**：
+
+JEI 靠 `instanceof ShapedRecipe` 决定画不画成网格（`CraftingCategoryExtension#getWidth`，
+不是就返回 0 → 按无序画）。更隐蔽的是**格子数**：2×3 有六格，
+JEI 把第 i 个材料放进格子 `{0, 1, 3, 4, 6, 7}`，而我们当时只声明了 **5 个**材料
+（每个非空格一个，漏了空着的左下角）。
+
+结果：木棍被画到/传到格子 **6**（左下角），而工作台要它在 **7**。
+点 JEI 的「+」→ 构件被搬出背包塞进错格 → 产物不出现，还报
+`Failed to process a synchronized task of the payload: jei:recipe_transfer_with_result`。
+
+**修法**：`extends ShapedRecipe`。pattern 自己知道宽、高和六个材料（含空格），
+三个 getter 全部免费且正确。配方 json 也因此变成标准 shaped 写法，
+并且 pattern 会同步到客户端 —— 不然客户端画不出来。
+
+#### ⚠️⚠️ 进度读的是 `step()`，不是 `progress()`
+
+**这是合不出来合了好几轮的真正原因。**
+
+`SequencedAssembly` 组件里有**两个**字段，只有一个在屏幕上：
+
+```java
+// Create 的 tooltip 用的就是它
+private int getStep(ItemStack stack) { return stack.get(SEQUENCED_ASSEMBLY).step(); }
+```
+
+tooltip 是 `"create.recipe.assembly.progress": "组装进度：%1$s/%2$s"`，
+`%1$s` 就是 `step()`，`%2$s` 是 `sequence.size() * loops` = **15**。
+
+旧代码读的是**另一个字段** `progress()`（float），还套了个自创换算
+`round(progress * 13) + 1`。那个 `13` 是 `getBarWidth()` —— **血条的像素宽度**，
+跟进度刻度毫无关系。
+
+| 你看到的 | 真实 progress | 旧公式给出 |
 |---|---|---|
-| 左上 / 右上 | `c:plates/gold` 金板 | **`c:plates/iron` 铁板** |
-| 右下 | `create:cogwheel` 齿轮 | **`create:large_cogwheel` 大齿轮** |
-| 左下 | `c:rods/wooden` 木棍 | **去掉**（整个第三行没了） |
+| `6/15` | 6/15 = 0.4 | `round(5.2)+1 = 6` ✓ |
+| `11/15` | 11/15 ≈ 0.733 | `round(9.53)+1 = 11` ✓ |
+| **`1/15`** | 1/15 ≈ 0.067 | `round(0.87)+1 = **2**` ✗ |
 
-```
-GG        G = 铁板
-GP        P = 大齿轮
-```
+**`1` 永远配不上。** 而这个世界的三个数是 6、1、11 —— 所以摆得多对都合不出来。
+
+现在 `MechanismStep.of(stack)` 直接返回 `assembly.step()`：
+**tooltip 读哪个字段，配方就读哪个字段**，中间不留算术。
+`mechanismStepIsTheNumberOnTheTooltip` 把 0~15 每一步都做了往返，旧公式第一次就会挂。
+
+> 教训：凡是要"换算"一个玩家可见的数字，先把打印它的那段反汇编出来看。
+> 那个 `+1` 一次都没对着 Create 源码验过，代价是后面三轮全在修一个不是问题的问题。
 
 ### 概要
 
