@@ -1,100 +1,59 @@
-# 神秘扳手配方 —— 排查状态（临时文件，问题解决后删除）
+# 神秘扳手配方 — 排查结论
 
-> 这个文件的存在理由：排查过程跨越了很多轮，而模型的上下文会压缩。
-> 把**已确认的事实**和**未解的矛盾**写在这里，就不依赖记忆了。
-
----
-
-## 已确认（都有证据）
-
-### 1. 配方本身注册正确
-
-测试 `wrenchRecipeLoadsAndProducesTheWrench` 断言并通过：
-
-- `RecipeManager.byKey(create_enigma:enigma_wrench)` 能拿到 ✓
-- `getType() == RecipeType.CRAFTING` ✓
-- 产物是 `create_enigma:enigma_wrench` ✓
-- `isSpecial() == false` ✓（JEI 会跳过 isSpecial 为 true 的配方）
-- `getIngredients()` 五个材料各自接受什么 ✓
-
-### 2. `CraftingInput` 的语义（读过源码 `CraftingInput.java`）
-
-```java
-// 行在前，列在后；步长是 width
-public ItemStack getItem(int row, int column) {
-    return this.items.get(row + column * this.width);
-}
-```
-
-**`getItem(y, x)` 的写法是对的** ✓
-
-**关键**：`CraftingInput.of(width, height, items)` **不是原样返回** ✗
-它会调用 `ofPositioned(...)`，把网格**裁剪到"有物品的最小矩形"**。
-所以 3×3 的合成台，如果物品只占了 2 列 × 3 行，传给配方的是 **2×3**。
-——日志里的 `2x3` 就是这么来的，**不是 JEI 的假网格**。
-
-### 3. Create 的半成品进度
-
-```java
-// SequencedAssemblyItem
-public float getProgress(ItemStack stack) { ... }
-public int getBarWidth() { return Math.round(getProgress(stack) * 13); }   // 0..13
-```
-
-**源码里没有任何 "x/15" 的文字** —— 那个读法来自看着进度条长度。
-内部只有 **0..13 共 14 档**，与"1/15 到 14/15"一一对应，差 1。
-`EnigmaCode` 对外用 1..14，配方比对时 `round(p*13) + 1`。
-
-### 4. 数字同步链路正常
-
-日志里出现过：
-```
-EnigmaCodeSyncClient: this world's numbers are 6, 1, 11.
-```
-服务端按种子算出 ✓ 发到客户端 ✓ 思索场景也用同一份 ✓
+> 这个文件曾经很长，记录了一次跨越很多轮的排查。结论已经确定，所以只剩结论。
+> 之前那版中文被 PowerShell 读写往返弄成了乱码，已重写。
 
 ---
 
-## 未解的矛盾 ✗
+## 1. 配方本身没问题（有证据）
 
-用户说：摆的是 **3 个半成品（6/1/11）+ 齿轮 + 木棍**，按配方形状摆。
+测试 `wrenchRecipeMatchesTheGridTheSceneDescribes` 构造了**和你摆的一模一样的格子**
+（三个构件在左上/上中/左中，齿轮在正中，木棍在下中），进度用的就是这个世界真正的三个数，
+然后走 `RecipeManager.getRecipeFor(RecipeType.CRAFTING, ...)` —— 也就是工作台问的同一个问题。
 
-日志说（最后几条，`Enigma recipe: refused`）：
+结果：**匹配上了**，偏移 0,0。日志原文：
+
 ```
-2x3 [半成品, 半成品 | 半成品, 齿轮 | 半成品, -]
-wanted=[6, 1, 11]  steps=[6 11 2 11]
+Enigma recipe #1:     mechanism 13/15   mechanism 3/15
+Enigma recipe #1:     mechanism 12/15   create:cogwheel
+Enigma recipe #1:     .                 minecraft:stick
+Enigma recipe #1: MATCHED at offset 0,0
 ```
 
-→ **4 个半成品、没有木棍、进度是 6/11/2/11**
+所以形状、偏移扫描、材料、进度比较，全对。
 
-**两个解释**：
+## 2. `CraftingInput.getItem` 的参数名是错的
 
-- **A**（更可能）：那行日志来自用户**中途某次尝试**，不是最后那次。用户试过多次。
-- **B**：最后一次没进日志（`slotsChanged` 没触发）。
+存储是行优先（`列 + 行 * 宽`），访问器却读 `行 + 列 * 宽`。**第一个参数实际是列。**
+现在全部读取走 `EnigmaWrenchRecipe.at(input, x, y)`，日志里同时打印两种读法：
 
----
+- `getItem(column, row)` → 正确的表
+- `getItem(row, column)` → 它的镜像（明显是乱的）
 
-## 下一步（只做这一件）
+这是**量出来的**，不是推出来的。
 
-**让日志只记录一次干净的尝试**，然后照着那一条判断：
+## 3. 真正的原因：玩家看不到构件是第几步
 
-1. 让 `matches` 的日志带上**每次调用递增的序号**，并打印**完整网格**（含空格）
-2. 请用户：进存档 → 摆一次 → 立刻退出 → 不要做别的
-3. 日志里应该只有**一条**记录，那就是答案
+整个 mod（以及 Create）**从来没有显示过一个未完成精密构件的步骤数**。
+Create 画的是 13 像素宽的条，没有数字，凭肉眼分不出第 6 步和第 7 步。
 
-### 判断表
+于是「拿三个特定步骤的构件」不是一个谜题，是一次**猜**——
+而差一步和差十二步，表现出来完全一样（合不出来，没有任何提示）。
 
-| 日志里看到 | 结论 |
-|---|---|
-| `grid` 里是 3 个半成品 + 齿轮 + 木棍，`steps` 对得上 `wanted` | 那是**空位判定或偏移扫描**的问题 |
-| `steps` 对不上 `wanted` | **进度换算**错了（检查 `+1` 方向） |
-| `grid` 里明显缺东西 | 不是代码问题，是物品没摆进去 |
-| 一条都没有 | `slotsChanged` 没走到 → 要换插桩位置 |
+**这就是为什么前三轮改形状、改行列都没有用：匹配一直是好的，是玩家拿不到对的东西。**
 
----
+修法：`client/IntermediateTooltip.java`，悬停构件显示「第 n / 15 步」，
+公式和配方里 `progressAt` **逐字符相同**（`round(progress * 13) + 1`）。
+两边一旦不一致，所有正确尝试都会失败且游戏不会说任何原因——这个类就是为了终结那种失败。
 
-## 方法上的教训（写给下一轮的我）
+## 4. 还没验证的
 
-- **先读源码，再改代码**。这一轮改了三轮形状，全都在一个自己没读过的 API 上。
-- **一次只改一处**，并且**先有能复现的证据**。
-- 用户说的现象**一直是对的**；错的是我对观测的解释。
+- 客户端上这行 tooltip 实际渲染出来是什么样（只能在游戏里看）
+- 配方在**客户端**是否也在 recipe manager 里（服务端已证实在）
+
+## 5. 留给以后的
+
+- 排查日志还在 `EnigmaWrenchRecipe` 里（每次 `matches` 打一份网格）。修好之后删掉 `CALLS` 和那些 `LOGGER.info`。
+- 旧证据里有一条值得记住：某次日志显示格子里有 **4 个构件、没有木棍**
+  （`2x3 [构件, 构件 | 构件, 齿轮 | 构件, -]`）——那是另一回事，别把它和进度问题混在一起。
+- 详情见 git 提交 `Log every recipe test, prove the match in a gametest, and show the mechanism's step`。
