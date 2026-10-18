@@ -37,25 +37,32 @@ import net.minecraft.world.level.Level;
  * <h2>Declared loosely, matched strictly</h2>
  *
  * <p>{@link #getIngredients()} says "any incomplete precision mechanism". That is what JEI draws, so
- * the viewer shows the shape of the recipe - three of them, plus a cogwheel and a rod - without ever
- * showing which progress each one needs. {@link #matches(CraftingInput, Level)} then checks the real
- * progresses. The two are allowed to differ, and that gap is the whole feature.
+ * the viewer shows the shape of the recipe without ever showing which progress each one needs.
+ * {@link #matches} then checks the real progresses. The two are allowed to differ, and that gap is
+ * the whole feature.
  *
  * <p>Nothing is given for a near miss. A wrong progress simply fails to match, so the result slot
- * stays empty. Handing back junk would suggest the attempt was close, and it is not: the three
- * numbers are written plainly in the ponder scene, and reading them is the puzzle.
+ * stays empty. The three numbers are written plainly in the ponder scene, and reading them is the
+ * puzzle.
  *
- * <h2>Why {@code isSpecial} is false</h2>
+ * <h2>{@code CraftingInput.getItem}'s parameters are misnamed</h2>
  *
- * <p>Despite the name, this recipe is not special as far as the game is concerned. JEI skips special
- * recipes - {@code CraftingCategoryExtension.isHandled} returns {@code !recipe.isSpecial()} - so
- * returning true here would hide the skeleton the whole design depends on. The recipe book stays
- * empty for a different reason: recipes are unlocked only by an advancement's {@code rewards.recipes},
- * and this one has none, so no player ever has it unlocked.
+ * <p>The storage built by {@code ofPositioned} is row-major - {@code column + row * width} - but the
+ * accessor reads {@code row + column * width}, which is column-major:
+ *
+ * <pre>
+ * ofPositioned:  list.add(items.get(k1 + i + (k2 + k) * width));   // k1 = column, k2 = row
+ * getItem:       return this.items.get(row  +  column * this.width);
+ * </pre>
+ *
+ * <p>So the parameter called {@code row} is really the column. Every read in this class goes through
+ * {@link #at}, which says so once instead of at seven call sites. Getting this backwards is silent:
+ * the recipe reads a transposed grid and never matches, and the grid it prints in a log is
+ * transposed too, so the mistake looks like the player's.
  */
 public class EnigmaWrenchRecipe implements CraftingRecipe {
 
-    /** Width and height of the shape. The bottom row has a leading space, so it is two wide. */
+    /** Width and height of the shape. The bottom row is " S", so the shape is two wide. */
     private static final int WIDTH = 2;
     private static final int HEIGHT = 3;
 
@@ -63,116 +70,56 @@ public class EnigmaWrenchRecipe implements CraftingRecipe {
     private static final TagKey<Item> WOODEN_RODS =
             TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath("c", "rods/wooden"));
 
-    /** Counts calls, so every query is distinguishable in the log. */
-    private static final java.util.concurrent.atomic.AtomicLong CALLS =
-            new java.util.concurrent.atomic.AtomicLong();
-
     @Override
     public boolean matches(CraftingInput input, Level level) {
-        // Unconditional and numbered. Every call leaves a trace, so "the recipe was never asked"
-        // and "the recipe said no" can no longer look the same in the log - which is exactly the
-        // distinction that several rounds of guesswork failed to make.
-        long call = CALLS.incrementAndGet();
-        com.mojang.logging.LogUtils.getLogger().info("Enigma recipe #{} {} grid={} wanted={}",
-                call, input.width() + "x" + input.height(), describeGrid(input),
-                java.util.Arrays.toString(EnigmaCodeState.progresses(level)));
-
-        // A shaped recipe may sit anywhere in a larger grid, so every offset is tried. In a 3x3
-        // grid a two-by-three pattern has exactly two possible positions.
-        boolean matched = false;
-        for (int x = 0; x + WIDTH <= input.width() && !matched; x++) {
-            for (int y = 0; y + HEIGHT <= input.height() && !matched; y++) {
-                matched = matchesAt(input, level, x, y);
-            }
-        }
-
-        // Diagnostic, and deliberately loud. A recipe that refuses a correct grid gives the player
-        // nothing at all - no result, no message - so this prints the grid, what the recipe wanted,
-        // and the step each mechanism actually reads as.
-        if (!input.isEmpty() && !matched) {
-            com.mojang.logging.LogUtils.getLogger().info(
-                    "Enigma recipe: refused grid={} wanted={} steps={}",
-                    describeGrid(input),
-                    java.util.Arrays.toString(EnigmaCodeState.progresses(level)),
-                    describeSteps(input));
-        }
-        return matched;
-    }
-
-    private static int countItems(CraftingInput input) {
-        int count = 0;
-        for (int i = 0; i < input.size(); i++) {
-            if (!input.getItem(i).isEmpty()) {
-                count++;
-            }
-        }
-        return count;
-    }
-
-    private static String describeGrid(CraftingInput input) {
-        StringBuilder text = new StringBuilder(input.width() + "x" + input.height() + " [");
-        for (int y = 0; y < input.height(); y++) {
-            for (int x = 0; x < input.width(); x++) {
-                if (x > 0) {
-                    text.append(", ");
-                }
-                ItemStack stack = input.getItem(y, x);
-                text.append(stack.isEmpty() ? "-" : stack.getItem().toString());
-            }
-            text.append(" | ");
-        }
-        return text.append(']').toString();
-    }
-
-    private static String describeSteps(CraftingInput input) {
-        StringBuilder text = new StringBuilder("[");
-        for (int y = 0; y < input.height(); y++) {
-            for (int x = 0; x < input.width(); x++) {
-                ItemStack stack = input.getItem(y, x);
-                if (stack.getItem() instanceof SequencedAssemblyItem item) {
-                    text.append(Math.round(item.getProgress(stack) * 13) + 1).append(' ');
+        // A shaped recipe may sit anywhere in a grid, so every offset is tried. Note that the grid
+        // handed in is already cropped to the cells that hold something, so a 3x3 table showing this
+        // pattern arrives as 2x3.
+        for (int x = 0; x + WIDTH <= input.width(); x++) {
+            for (int y = 0; y + HEIGHT <= input.height(); y++) {
+                if (matchesAt(input, level, x, y)) {
+                    return true;
                 }
             }
         }
-        return text.append(']').toString();
+        return false;
     }
 
-    /**
-     * One position of the pattern.
-     *
-     * <p>Note the argument order of {@code CraftingInput.getItem}: <b>row first, then column</b>. The
-     * loop variables here are named x and y for readability, so every read flips them.
-     */
     private boolean matchesAt(CraftingInput input, Level level, int x, int y) {
         int[] wanted = EnigmaCodeState.progresses(level);
 
-        if (!isIntermediateAt(input, x, y, wanted[0])) {
-            return false;
-        }
-        if (!isIntermediateAt(input, x + 1, y, wanted[1])) {
-            return false;
-        }
-        if (!isIntermediateAt(input, x, y + 1, wanted[2])) {
-            return false;
-        }
-        if (!input.getItem(y + 1, x + 1).is(AllBlocks.COGWHEEL.get().asItem())) {
-            return false;
-        }
-        if (!input.getItem(y + 2, x + 1).is(WOODEN_RODS)) {
-            return false;
-        }
+        return isIntermediateAt(input, x, y, wanted[0])
+                && isIntermediateAt(input, x + 1, y, wanted[1])
+                && isIntermediateAt(input, x, y + 1, wanted[2])
+                && at(input, x + 1, y + 1).is(AllBlocks.COGWHEEL.get().asItem())
+                && at(input, x + 1, y + 2).is(WOODEN_RODS)
+                && restIsEmpty(input, x, y);
+    }
 
-        // Every cell the pattern does not fill has to be empty, or a grid with extra items would
-        // count as a match. Inside the two-by-three box exactly one cell is blank: the bottom left,
-        // because the bottom row of the pattern is " S".
+    /**
+     * Reads one cell, with x as the column and y as the row.
+     *
+     * <p>Exists because {@code CraftingInput.getItem(row, column)} indexes column-major while its
+     * backing list is built row-major, so the first argument is the column despite its name. One
+     * place to notice that is better than seven.
+     */
+    private static ItemStack at(CraftingInput input, int x, int y) {
+        return input.getItem(x, y);
+    }
+
+    /**
+     * Every cell outside the shape has to be empty, or a grid with extra items would match.
+     *
+     * <p>Inside the two-by-three box exactly one cell is blank - the bottom left - because the bottom
+     * row of the pattern is {@code " S"}.
+     */
+    private static boolean restIsEmpty(CraftingInput input, int x, int y) {
         for (int cx = 0; cx < input.width(); cx++) {
             for (int cy = 0; cy < input.height(); cy++) {
                 boolean inBox = cx >= x && cx < x + WIDTH && cy >= y && cy < y + HEIGHT;
                 boolean blankInPattern = inBox && cx == x && cy == y + 2;
-                if (!inBox || blankInPattern) {
-                    if (!input.getItem(cy, cx).isEmpty()) {
-                        return false;
-                    }
+                if ((!inBox || blankInPattern) && !at(input, cx, cy).isEmpty()) {
+                    return false;
                 }
             }
         }
@@ -180,25 +127,20 @@ public class EnigmaWrenchRecipe implements CraftingRecipe {
     }
 
     /**
-     * Whether a slot holds an incomplete precision mechanism at exactly the wanted step.
+     * Whether a cell holds an incomplete precision mechanism at exactly the wanted step.
      *
      * <p>Create stores the progress as a float and displays it as {@code round(progress * 13)}, which
-     * runs 0 to 13, while the number a player reads is one higher: the first assembly step produces a
-     * 1/15 intermediate and the fifteenth finishes it, so the reachable display values are 1 to 14.
-     * {@link EnigmaCode} speaks in those displayed numbers, so the one is added back here.
-     *
-     * <p>An off-by-one in this expression is the worst kind of bug this mod can have: the scene says
-     * 3, the player builds 3, and the recipe silently wants 2.
+     * runs 0 to 13, while the number a player reads off the item's bar is one higher: the first
+     * assembly step produces a 1/15 intermediate and the fifteenth finishes it. {@link EnigmaCode}
+     * speaks in those displayed numbers, so the one is added back here.
      */
     private static boolean isIntermediateAt(CraftingInput input, int x, int y, int wanted) {
-        ItemStack stack = input.getItem(y, x);
+        ItemStack stack = at(input, x, y);
         if (!(stack.getItem() instanceof SequencedAssemblyItem item)) {
             return false;
         }
-        if (!stack.is(AllItems.INCOMPLETE_PRECISION_MECHANISM.get())) {
-            return false;
-        }
-        return Math.round(item.getProgress(stack) * 13) + 1 == wanted;
+        return stack.is(AllItems.INCOMPLETE_PRECISION_MECHANISM.get())
+                && Math.round(item.getProgress(stack) * 13) + 1 == wanted;
     }
 
     @Override
@@ -214,7 +156,7 @@ public class EnigmaWrenchRecipe implements CraftingRecipe {
     /**
      * What the recipe claims to need, for JEI and the recipe book.
      *
-     * <p>Deliberately looser than {@link #matches}: the three mechanisms are named by item only, so no
+     * <p>Deliberately looser than {@link #matches}: the mechanisms are named by item only, so no
      * progress is revealed. Row-major, in the order the pattern reads.
      */
     @Override
@@ -233,7 +175,7 @@ public class EnigmaWrenchRecipe implements CraftingRecipe {
 
     @Override
     public boolean isSpecial() {
-        // See the class comment: JEI hides special recipes, and this one has to be visible there.
+        // JEI hides special recipes, and this one has to be visible there.
         return false;
     }
 
