@@ -1,11 +1,11 @@
 package com.createenigma.registry;
 
 import com.createenigma.CreateEnigma;
+import com.createenigma.content.CreativeHandCrankBlockEntity;
 import com.createenigma.content.DisguisedMotorBlockEntity;
 import com.createenigma.content.EnigmaCoreBlockEntity;
 import com.simibubi.create.AllPartialModels;
 import com.simibubi.create.content.kinetics.base.OrientedRotatingVisual;
-import com.simibubi.create.content.kinetics.crank.HandCrankBlockEntity;
 import com.simibubi.create.content.kinetics.crank.HandCrankRenderer;
 import com.simibubi.create.content.kinetics.crank.HandCrankVisual;
 import com.simibubi.create.content.kinetics.motor.CreativeMotorRenderer;
@@ -41,9 +41,9 @@ public class CEBlockEntities {
     /**
      * The creative hand crank, borrowing Create's whole visual chain.
      *
-     * <p>{@code HandCrankBlockEntity} is used unchanged: the 16384 stress units do not live in the
-     * block entity but in {@code BlockStressValues}, keyed by block, so the block entry supplies it
-     * and the behaviour here is Create's original crank.
+     * <p>The block entity is ours only to answer one question differently - see
+     * {@link CreativeHandCrankBlockEntity}, where the stress value is actually read from. Everything
+     * else about it is Create's, unchanged.
      *
      * <p>Both halves of the rendering are Create's, registered for our type. The arm is animated by
      * {@link HandCrankVisual} - a Flywheel visual, which is why it can turn without a block state
@@ -51,11 +51,11 @@ public class CEBlockEntities {
      * {@code HandCrankBlockEntity.getRenderedHandle()}. Registering both mirrors what Create does for
      * its own crank and keeps the fallback intact.
      *
-     * <p>On plain servers {@code HandCrankVisual} is client-only; it is only ever named inside the
-     * supplier, which runs during client setup, and never while the block entity type is registered.
+     * <p>Both are client-only; they are only ever named inside the suppliers, which run during client
+     * setup, never while the block entity type is registered on a server.
      */
-    public static final BlockEntityEntry<HandCrankBlockEntity> CREATIVE_HAND_CRANK =
-            CreateEnigma.registrate().blockEntity("creative_hand_crank", HandCrankBlockEntity::new)
+    public static final BlockEntityEntry<CreativeHandCrankBlockEntity> CREATIVE_HAND_CRANK =
+            CreateEnigma.registrate().blockEntity("creative_hand_crank", CreativeHandCrankBlockEntity::new)
                     .visual(() -> HandCrankVisual::new, false)
                     .validBlocks(CEBlocks.CREATIVE_HAND_CRANK)
                     .renderer(() -> HandCrankRenderer::new)

@@ -9,6 +9,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 
 import com.createenigma.CreateEnigma;
+import com.createenigma.content.CreativeHandCrankBlockEntity;
 import com.createenigma.content.EnigmaAdvancements;
 import com.createenigma.content.EnigmaCodeState;
 import com.createenigma.content.EnigmaCoreBlock;
@@ -23,11 +24,13 @@ import com.createenigma.structure.EnigmaStructure;
 import com.createenigma.structure.EnigmaStructure.Generation;
 import com.createenigma.structure.EnigmaValidator;
 import com.mojang.logging.LogUtils;
+import com.simibubi.create.AllBlockEntityTypes;
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.AllDataComponents;
 import com.simibubi.create.AllItems;
 import com.simibubi.create.api.stress.BlockStressValues;
 import com.simibubi.create.content.kinetics.crank.HandCrankBlock;
+import com.simibubi.create.content.kinetics.crank.HandCrankBlockEntity;
 import com.simibubi.create.content.decoration.palettes.AllPaletteBlocks;
 import com.simibubi.create.content.kinetics.belt.BeltBlock;
 import com.simibubi.create.content.kinetics.belt.BeltPart;
@@ -874,26 +877,45 @@ public class EnigmaGameTests {
 
     /**
      * The creative hand crank differs from Create's by one number, and that number is the whole
-     * feature - so it gets its own test rather than being assumed.
+     * feature - so it is asserted where the player's SU actually comes from.
      *
-     * <p>{@code BlockStressValues} is keyed by block, so the assertion below is also the evidence
-     * that a differently-valued crank can exist at all: the same lookup answers 8 for Create's block
-     * and 16384 for ours, side by side. If Create ever changes the key to a class or a config topic,
-     * this fails loudly instead of silently handing the crank Create's value.
+     * <h2>This test used to be useless, and the reason is worth keeping</h2>
+     *
+     * <p>It first asserted {@code BlockStressValues.getCapacity(ourBlock) == 16384}, which was true
+     * from the start and stayed true while the block provided 256 SU. The value a player sees is not
+     * that lookup: it is {@code calculateAddedStressCapacity()} on the block entity, and Create's
+     * crank reaches the lookup through a <b>hardcoded</b> key that names its own two blocks and
+     * nothing else. So the registration was correct, unread, and the test agreed with itself.
+     *
+     * <p>Both layers are asserted now. The registry one says the number is filed; the block entity
+     * one says the number arrives - and it is the second that would have failed.
      */
     @GameTest(template = TEMPLATE)
     public static void creativeHandCrankProvidesCreativeStress(GameTestHelper helper) {
         HandCrankBlock ours = CEBlocks.CREATIVE_HAND_CRANK.get();
         HandCrankBlock theirs = AllBlocks.HAND_CRANK.get();
 
-        double ours_ = BlockStressValues.getCapacity(ours);
-        double theirs_ = BlockStressValues.getCapacity(theirs);
+        // Layer one: the value is registered, and registering it did not disturb Create's.
+        helper.assertTrue(BlockStressValues.getCapacity(ours) == 16384.0,
+                "the creative hand crank registers " + BlockStressValues.getCapacity(ours)
+                        + " su/RPM, expected 16384");
+        helper.assertTrue(BlockStressValues.getCapacity(theirs) == 8.0,
+                "Create's hand crank registers " + BlockStressValues.getCapacity(theirs)
+                        + " su/RPM, expected 8");
 
-        helper.assertTrue(ours_ == 16384.0,
-                "the creative hand crank provides " + ours_ + " su/RPM, expected 16384");
-        helper.assertTrue(theirs_ == 8.0,
-                "Create's hand crank now provides " + theirs_ + " su/RPM, expected 8 - the two lookups"
-                        + " are not independent any more");
+        // Layer two: the value reaches the block entity. This is the assertion with teeth - it is
+        // what the stress network reads, and what the first version of this test did not check.
+        CreativeHandCrankBlockEntity creative = new CreativeHandCrankBlockEntity(
+                CEBlockEntities.CREATIVE_HAND_CRANK.get(), BlockPos.ZERO, ours.defaultBlockState());
+        helper.assertTrue(creative.calculateAddedStressCapacity() == 16384f,
+                "the creative hand crank's block entity provides "
+                        + creative.calculateAddedStressCapacity() + " su/RPM, expected 16384");
+
+        HandCrankBlockEntity plain = new HandCrankBlockEntity(
+                AllBlockEntityTypes.HAND_CRANK.get(), BlockPos.ZERO, theirs.defaultBlockState());
+        helper.assertTrue(plain.calculateAddedStressCapacity() == 8f,
+                "Create's hand crank's block entity provides " + plain.calculateAddedStressCapacity()
+                        + " su/RPM, expected 8");
 
         // A block entity type lists the blocks it may appear on. Ours must list ours and only ours,
         // or placing the block creates no block entity and nothing turns.
