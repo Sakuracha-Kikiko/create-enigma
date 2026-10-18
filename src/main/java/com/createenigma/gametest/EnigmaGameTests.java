@@ -10,6 +10,7 @@ import java.util.TreeSet;
 
 import com.createenigma.CreateEnigma;
 import com.createenigma.content.EnigmaAdvancements;
+import com.createenigma.content.EnigmaCodeState;
 import com.createenigma.content.EnigmaCoreBlock;
 import com.createenigma.registry.CEBlocks;
 import com.createenigma.registry.CEItems;
@@ -27,6 +28,7 @@ import com.simibubi.create.content.decoration.palettes.AllPaletteBlocks;
 import com.simibubi.create.content.kinetics.belt.BeltBlock;
 import com.simibubi.create.content.kinetics.belt.BeltPart;
 import com.simibubi.create.content.kinetics.belt.BeltSlope;
+import com.simibubi.create.content.processing.sequenced.SequencedAssemblyRecipe;
 import com.simibubi.create.content.schematics.SchematicItem;
 
 import org.slf4j.Logger;
@@ -46,6 +48,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.RecipeType;
@@ -716,6 +720,99 @@ public class EnigmaGameTests {
                 "the recipe reports itself as special, which hides it from JEI");
 
         helper.succeed();
+    }
+
+    // --------------------------------------------------------------------------------
+    // The grid the scene tells the player to build, matched for real.
+    //
+    // The test above proves the recipe loaded, is filed, and is shaped the way we meant. It does
+    // not prove that the pattern the scene describes is the pattern that matches, and every round
+    // of "still cannot craft" has turned on exactly that gap. So this builds the grid out of
+    // intermediates whose progress really is this world's numbers, and asks the recipe manager the
+    // same question the crafting table asks - including the crop to the occupied cells, which is
+    // the part that is easiest to get wrong and impossible to see from in front of the table.
+    // --------------------------------------------------------------------------------
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void wrenchRecipeMatchesTheGridTheSceneDescribes(GameTestHelper helper) {
+        RecipeManager recipes = helper.getLevel().getServer().getRecipeManager();
+        int[] wanted = EnigmaCodeState.progresses(helper.getLevel());
+        LOGGER.info("Wrench test: this world's numbers are {} {} {}", wanted[0], wanted[1], wanted[2]);
+
+        helper.assertTrue(wanted[0] != wanted[1] && wanted[1] != wanted[2] && wanted[0] != wanted[2],
+                "the three numbers repeat: " + wanted[0] + " " + wanted[1] + " " + wanted[2]);
+
+        // Row-major, exactly the layout a player builds in a crafting table:
+        //   M M .
+        //   M C .
+        //   . S .
+        List<ItemStack> grid = new ArrayList<>(9);
+        for (int i = 0; i < 9; i++) {
+            grid.add(ItemStack.EMPTY);
+        }
+        grid.set(0, mechanismAt(wanted[0]));
+        grid.set(1, mechanismAt(wanted[1]));
+        grid.set(3, mechanismAt(wanted[2]));
+        grid.set(4, new ItemStack(AllBlocks.COGWHEEL.get().asItem()));
+        grid.set(7, new ItemStack(Items.STICK));
+
+        CraftingInput input = CraftingInput.of(3, 3, grid);
+
+        // A table always hands over the cropped grid, so the recipe never sees the empty third
+        // column. Asserting the crop means a future shape change fails here with a clear message
+        // rather than in front of the table.
+        helper.assertTrue(input.width() == 2 && input.height() == 3,
+                "the crafting table hands over a " + input.width() + "x" + input.height()
+                        + " grid, expected 2x3 after cropping");
+
+        var found = recipes.getRecipeFor(RecipeType.CRAFTING, input, helper.getLevel());
+        helper.assertTrue(found.isPresent(),
+                "a grid holding " + wanted[0] + "/15, " + wanted[1] + "/15 and " + wanted[2] + "/15"
+                        + " around a cogwheel and a stick matches no recipe at all");
+        helper.assertTrue(found.get().value() instanceof EnigmaWrenchRecipe,
+                "that grid matched " + found.get().id() + " instead of the Enigma Wrench");
+
+        // The order matters, or the puzzle is just "any three mechanisms". Swapping the two top
+        // ones must stop matching; the numbers are distinct, so the swap really changes the grid.
+        List<ItemStack> swapped = new ArrayList<>(grid);
+        swapped.set(0, mechanismAt(wanted[1]));
+        swapped.set(1, mechanismAt(wanted[0]));
+        helper.assertFalse(
+                recipes.getRecipeFor(RecipeType.CRAFTING, CraftingInput.of(3, 3, swapped), helper.getLevel())
+                        .isPresent(),
+                "swapping the first two numbers still matched, so their order means nothing");
+
+        // And so does the progress itself: one step off must not match, or any three mechanisms
+        // would do.
+        List<ItemStack> offByOne = new ArrayList<>(grid);
+        offByOne.set(0, mechanismAt(stepOtherThan(wanted[0])));
+        helper.assertFalse(
+                recipes.getRecipeFor(RecipeType.CRAFTING, CraftingInput.of(3, 3, offByOne), helper.getLevel())
+                        .isPresent(),
+                "a mechanism one step away from " + wanted[0] + "/15 still matched");
+
+        helper.succeed();
+    }
+
+    /**
+     * An incomplete precision mechanism at a given displayed progress.
+     *
+     * <p>Create stores the bar's value as a float and draws {@code round(progress * 13)}, so asking
+     * for displayed step n means a stored progress of {@code (n - 1) / 13} - which reproduces the
+     * number a player reads off the item exactly.
+     */
+    private static ItemStack mechanismAt(int displayed) {
+        ItemStack stack = new ItemStack(AllItems.INCOMPLETE_PRECISION_MECHANISM.get());
+        stack.set(AllDataComponents.SEQUENCED_ASSEMBLY,
+                new SequencedAssemblyRecipe.SequencedAssembly(
+                        ResourceLocation.fromNamespaceAndPath(CreateEnigma.MOD_ID, "gametest"),
+                        0, (displayed - 1) / 13f));
+        return stack;
+    }
+
+    /** A legal progress that is not this one, for the negative case. */
+    private static int stepOtherThan(int displayed) {
+        return displayed == 1 ? 2 : 1;
     }
 
     private static String describe(GameTestHelper helper) {

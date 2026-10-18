@@ -18,6 +18,7 @@
   "create_enigma.enigma_wrench.summary": "A multi-purpose tool for debugging %s...?",
   "create_enigma.enigma_wrench.subject": "the Enigma",
   "create_enigma.enigma_wrench.aside": "Debug WHAT? Just say it",
+  "create_enigma.mechanism.step": "Step %s of 15",
   "create_enigma.wrench.chest": "It is a chest",
   "create_enigma.wrench.chest_question": "It is a chest...?",
   "create_enigma.wrench.hungry": "It is asking for more...",

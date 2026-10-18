@@ -1,13 +1,17 @@
 package com.createenigma.content;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 import com.createenigma.registry.CEItems;
 import com.createenigma.registry.CERecipes;
+import com.mojang.logging.LogUtils;
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.AllItems;
 import com.simibubi.create.content.processing.sequenced.SequencedAssemblyItem;
 
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
@@ -19,6 +23,8 @@ import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.level.Level;
+
+import org.slf4j.Logger;
 
 /**
  * The Enigma Wrench, crafted in the Wrench's own pattern out of three precision mechanism
@@ -66,34 +72,125 @@ public class EnigmaWrenchRecipe implements CraftingRecipe {
     private static final int WIDTH = 2;
     private static final int HEIGHT = 3;
 
+    private static final Logger LOGGER = LogUtils.getLogger();
+
+    /**
+     * Numbers the diagnostic lines, so one crafting attempt can be told from the next.
+     *
+     * <p>Deliberately a running counter rather than a per-grid fingerprint: what matters is whether
+     * a click in the table produces <em>any</em> call at all, and then what that call was looking at.
+     * Remove every user of this alongside the surrounding log lines once the recipe works.
+     */
+    private static final AtomicInteger CALLS = new AtomicInteger();
+
     /** Create's tag for wooden rods, the same one the vanilla wrench recipe names. */
     private static final TagKey<Item> WOODEN_RODS =
             TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath("c", "rods/wooden"));
 
     @Override
     public boolean matches(CraftingInput input, Level level) {
+        int call = CALLS.incrementAndGet();
+        int[] wanted = EnigmaCodeState.progresses(level);
+        LOGGER.info("Enigma recipe #{}: asked on {} for a {}x{} grid, wanted {} {} {}",
+                call, level.isClientSide() ? "client" : "server",
+                input.width(), input.height(), wanted[0], wanted[1], wanted[2]);
+        logGrid(call, input);
+
         // A shaped recipe may sit anywhere in a grid, so every offset is tried. Note that the grid
         // handed in is already cropped to the cells that hold something, so a 3x3 table showing this
         // pattern arrives as 2x3.
         for (int x = 0; x + WIDTH <= input.width(); x++) {
             for (int y = 0; y + HEIGHT <= input.height(); y++) {
-                if (matchesAt(input, level, x, y)) {
+                if (matchesAt(input, level, call, x, y)) {
+                    LOGGER.info("Enigma recipe #{}: MATCHED at offset {},{}", call, x, y);
                     return true;
                 }
             }
         }
+        LOGGER.info("Enigma recipe #{}: no offset matched", call);
         return false;
     }
 
-    private boolean matchesAt(CraftingInput input, Level level, int x, int y) {
+    private boolean matchesAt(CraftingInput input, Level level, int call, int x, int y) {
         int[] wanted = EnigmaCodeState.progresses(level);
 
-        return isIntermediateAt(input, x, y, wanted[0])
-                && isIntermediateAt(input, x + 1, y, wanted[1])
-                && isIntermediateAt(input, x, y + 1, wanted[2])
-                && at(input, x + 1, y + 1).is(AllBlocks.COGWHEEL.get().asItem())
-                && at(input, x + 1, y + 2).is(WOODEN_RODS)
-                && restIsEmpty(input, x, y);
+        // Each check is named so a refusal says which cell was wrong and what was in it, instead of
+        // leaving the next reader to guess again.
+        if (progressAt(input, x, y) != wanted[0]) {
+            return refuse(call, x, y, "top left", progress(progressAt(input, x, y)), progress(wanted[0]));
+        }
+        if (progressAt(input, x + 1, y) != wanted[1]) {
+            return refuse(call, x, y, "top right", progress(progressAt(input, x + 1, y)), progress(wanted[1]));
+        }
+        if (progressAt(input, x, y + 1) != wanted[2]) {
+            return refuse(call, x, y, "middle left", progress(progressAt(input, x, y + 1)), progress(wanted[2]));
+        }
+        if (!at(input, x + 1, y + 1).is(AllBlocks.COGWHEEL.get().asItem())) {
+            return refuse(call, x, y, "middle right", describeCell(input, x + 1, y + 1), "a cogwheel");
+        }
+        if (!at(input, x + 1, y + 2).is(WOODEN_RODS)) {
+            return refuse(call, x, y, "bottom right", describeCell(input, x + 1, y + 2), "a wooden rod");
+        }
+        return restIsEmpty(input, x, y) || refuseExtras(call, x, y, input);
+    }
+
+    /** "12/15", or "nothing at all" for a cell that is not a mechanism. */
+    private static String progress(int progress) {
+        return progress < 0 ? "nothing at all" : progress + "/15";
+    }
+
+    /** Logs one refusal and answers false, so a check can read as {@code return refuse(...)}. */
+    private static boolean refuse(int call, int x, int y, String where, String found, String wanted) {
+        LOGGER.info("Enigma recipe #{}: {} at offset {},{} - found {}, wanted {}",
+                call, where, x, y, found, wanted);
+        return false;
+    }
+
+    /** Finds and reports the first cell that should have been empty and is not. */
+    private static boolean refuseExtras(int call, int x, int y, CraftingInput input) {
+        for (int cx = 0; cx < input.width(); cx++) {
+            for (int cy = 0; cy < input.height(); cy++) {
+                boolean inBox = cx >= x && cx < x + WIDTH && cy >= y && cy < y + HEIGHT;
+                boolean blankInPattern = inBox && cx == x && cy == y + 2;
+                if ((!inBox || blankInPattern) && !at(input, cx, cy).isEmpty()) {
+                    LOGGER.info("Enigma recipe #{}: unwanted {} at {},{} for offset {},{}",
+                            call, describeCell(input, cx, cy), cx, cy, x, y);
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Prints the grid twice, under both readings of {@code CraftingInput.getItem}.
+     *
+     * <p>This is the one measurement that settles the transposition question without trusting any
+     * theory about it. Read as rows of three, the correct table is the one that looks like
+     * <pre>
+     *   M M .
+     *   M C .
+     *   . S .
+     * </pre>
+     * and the wrong one is its mirror.
+     */
+    private static void logGrid(int call, CraftingInput input) {
+        LOGGER.info("Enigma recipe #{}: as getItem(column, row):", call);
+        for (int y = 0; y < input.height(); y++) {
+            StringBuilder row = new StringBuilder("    ");
+            for (int cx = 0; cx < input.width(); cx++) {
+                row.append(String.format("%-24s", describeCell(input, cx, y)));
+            }
+            LOGGER.info("Enigma recipe #{}: {}", call, row);
+        }
+        LOGGER.info("Enigma recipe #{}: as getItem(row, column):", call);
+        for (int cy = 0; cy < input.width(); cy++) {
+            StringBuilder row = new StringBuilder("    ");
+            for (int cx = 0; cx < input.height(); cx++) {
+                row.append(String.format("%-24s", describeCell(input, cy, cx)));
+            }
+            LOGGER.info("Enigma recipe #{}: {}", call, row);
+        }
     }
 
     /**
@@ -127,20 +224,35 @@ public class EnigmaWrenchRecipe implements CraftingRecipe {
     }
 
     /**
-     * Whether a cell holds an incomplete precision mechanism at exactly the wanted step.
+     * The progress a cell would display, or -1 when it holds no incomplete precision mechanism.
      *
      * <p>Create stores the progress as a float and displays it as {@code round(progress * 13)}, which
      * runs 0 to 13, while the number a player reads off the item's bar is one higher: the first
      * assembly step produces a 1/15 intermediate and the fifteenth finishes it. {@link EnigmaCode}
      * speaks in those displayed numbers, so the one is added back here.
      */
-    private static boolean isIntermediateAt(CraftingInput input, int x, int y, int wanted) {
+    private static int progressAt(CraftingInput input, int x, int y) {
         ItemStack stack = at(input, x, y);
         if (!(stack.getItem() instanceof SequencedAssemblyItem item)) {
-            return false;
+            return -1;
         }
-        return stack.is(AllItems.INCOMPLETE_PRECISION_MECHANISM.get())
-                && Math.round(item.getProgress(stack) * 13) + 1 == wanted;
+        if (!stack.is(AllItems.INCOMPLETE_PRECISION_MECHANISM.get())) {
+            return -1;
+        }
+        return Math.round(item.getProgress(stack) * 13) + 1;
+    }
+
+    /** One cell, briefly, for the log. */
+    private static String describeCell(CraftingInput input, int x, int y) {
+        ItemStack stack = at(input, x, y);
+        if (stack.isEmpty()) {
+            return ".";
+        }
+        int progress = progressAt(input, x, y);
+        if (progress >= 0) {
+            return "mechanism " + progress + "/15";
+        }
+        return String.valueOf(BuiltInRegistries.ITEM.getKey(stack.getItem()));
     }
 
     @Override

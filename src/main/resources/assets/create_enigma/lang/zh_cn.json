@@ -18,6 +18,7 @@
   "create_enigma.enigma_wrench.summary": "用于调试%s的多功能工具…？",
   "create_enigma.enigma_wrench.subject": "神秘机械",
   "create_enigma.enigma_wrench.aside": "调试啥你倒是说啊",
+  "create_enigma.mechanism.step": "第 %s / 15 步",
   "create_enigma.wrench.chest": "这是一个箱子",
   "create_enigma.wrench.chest_question": "这是一个箱子…？",
   "create_enigma.wrench.hungry": "它正渴求着更多…",
