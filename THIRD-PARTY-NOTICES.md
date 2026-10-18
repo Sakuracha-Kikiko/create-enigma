@@ -20,5 +20,27 @@ asset, and this file carries the notice that the MIT license requires.
   model cannot recolour itself, so a differently coloured wrench needs a texture file of its own.
 - **Reproduce:** `tools/RecolourWrenchTexture.java` regenerates the file from the source texture.
 
+### Also derived: the creative hand crank's three textures
+
+- **Derived files**, all in `src/main/resources/assets/create_enigma/textures/block/`:
+  `creative_hand_crank_axis.png`, `creative_hand_crank_casing.png`,
+  `creative_hand_crank_log_top.png`
+- **Source files**, from the same Create build: `assets/create/textures/block/axis.png`,
+  `andesite_casing_short.png`, `smooth_dark_log_top.png`
+- **What was changed:** colour only, and by a different method than the wrench. Hue rotation does
+  nothing to andesite casing (it is grey, with no saturation to rotate), and multiplying by a violet
+  leaves the dark log maroon (it is red-dominant, so scaling green and blue down keeps red on top).
+  So the colour is discarded and rebuilt from brightness: each pixel's luminance is mapped onto a
+  dark-violet to light-violet ramp. Shading, edges and highlights survive because luminance is
+  untouched; the material distinction between bare metal and wood does not, which is intended - the
+  point is that the whole thing reads as a creative item.
+- **Reproduce:** `tools/Tint.java`.
+
+### Geometry referenced, never copied
+
+The creative hand crank's arm and base, and the Enigma Wrench's handle and gear, are model files in
+this mod that contain **no geometry**: each is a `parent` plus a texture rebinding, so the shapes are
+inherited from Create's own model files at runtime.
+
 Everything else this mod draws reuses Create's block textures by name at runtime, without
 redistributing them; see the "贴图" section of `README.md`.

@@ -1,0 +1,9 @@
+{
+  "parent": "create:block/hand_crank/handle",
+  "textures": {
+    "0": "create_enigma:block/creative_hand_crank_axis",
+    "2": "create_enigma:block/creative_hand_crank_casing",
+    "3": "create_enigma:block/creative_hand_crank_log_top",
+    "particle": "create_enigma:block/creative_hand_crank_axis"
+  }
+}

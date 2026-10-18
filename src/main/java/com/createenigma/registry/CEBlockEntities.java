@@ -1,13 +1,13 @@
 package com.createenigma.registry;
 
 import com.createenigma.CreateEnigma;
+import com.createenigma.client.CreativeHandCrankVisual;
 import com.createenigma.content.CreativeHandCrankBlockEntity;
 import com.createenigma.content.DisguisedMotorBlockEntity;
 import com.createenigma.content.EnigmaCoreBlockEntity;
 import com.simibubi.create.AllPartialModels;
 import com.simibubi.create.content.kinetics.base.OrientedRotatingVisual;
 import com.simibubi.create.content.kinetics.crank.HandCrankRenderer;
-import com.simibubi.create.content.kinetics.crank.HandCrankVisual;
 import com.simibubi.create.content.kinetics.motor.CreativeMotorRenderer;
 import com.tterrag.registrate.util.entry.BlockEntityEntry;
 
@@ -56,7 +56,7 @@ public class CEBlockEntities {
      */
     public static final BlockEntityEntry<CreativeHandCrankBlockEntity> CREATIVE_HAND_CRANK =
             CreateEnigma.registrate().blockEntity("creative_hand_crank", CreativeHandCrankBlockEntity::new)
-                    .visual(() -> HandCrankVisual::new, false)
+                    .visual(() -> CreativeHandCrankVisual::new, false)
                     .validBlocks(CEBlocks.CREATIVE_HAND_CRANK)
                     .renderer(() -> HandCrankRenderer::new)
                     .register();
