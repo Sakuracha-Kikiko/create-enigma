@@ -68,15 +68,45 @@ tooltip 是 `"create.recipe.assembly.progress": "组装进度：%1$s/%2$s"`，
 修法：`content/MechanismStep.java`，直接返回 `assembly.step()` ——
 **tooltip 读哪个字段，配方就读哪个字段**，中间不留任何算术，也就没有算错的机会。
 
-## 4. 还没验证的
+## 4. JEI 的两个 bug（同一个原因）
 
-- 进游戏实际合成一次（服务端已证明能匹配，就差这一步）
-- 配方在**客户端**是否也在 recipe manager 里
+现象：JEI 里显示成**无序配方**；点「+」传输会报
+`Failed to process a synchronized task of the payload: jei:recipe_transfer_with_result`，
+而且把玩家的构件吃进错误的格子里。
 
-## 5. 留给以后的
+读源码后确定是同一个原因。JEI 那边：
 
-- 排查日志还在 `EnigmaWrenchRecipe` 里（每次 `matches` 打一份网格 + 两种读法）。
-  **确认能合出来之后**，删掉 `CALLS`、`refuse`、`logGrid` 和那些 `LOGGER.info`。
+```java
+// CraftingCategoryExtension
+if (recipe instanceof ShapedRecipe shaped) return shaped.getWidth();  // 否则 0
+```
+
+我们的配方只 `implements CraftingRecipe` → 宽高都是 0 → JEI 按无序画。
+
+更糟的是**格子数对不上**。2×3 有六格，JEI 的 `getCraftingIndex(i, 2, 3)`
+把第 i 个材料放进格子 `{0, 1, 3, 4, 6, 7}`：
+
+| 材料序号 | 0 | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|---|
+| 格子 | 0 | 1 | 3 | 4 | **6** | **7** |
+
+旧代码 `getIngredients()` 只给 **5 个**（每个非空格一个，没算那个空格）。
+于是第 5 个材料（木棍）被画到/传到格子 6 —— **左下那个本该空着的角**，
+而工作台要它在格子 7。点「+」→ 构件被搬出背包、塞进错格 → 产物不出现。
+
+**修法**：`EnigmaWrenchRecipe extends ShapedRecipe`。
+pattern 自己知道宽、高和六个材料（含空格），
+`getIngredients()`、`getWidth()`、`getHeight()` 全部免费且正确，
+JEI 直接当形状画。配方 json 也顺势变成标准的 shaped 写法。
+
+## 5. 还没验证的
+
+- JEI 里现在是否真的画成 2×3（要进游戏看）
+- 「+」按钮是否还会报错
+
+## 6. 留给以后的
+
+- 排查日志已经全部删掉了（`CALLS`、`logGrid`、`refuse`），17 个测试是新的安全网。
 - 教训：那个 `+1` 是从血条宽度推出来的，一次都没对着 Create 的源码验过。
   后来三轮改形状、改行列全在修一个不是问题的问题 —— 因为匹配一直是好的。
   凡是要「换算」玩家可见的数字，先把 Create 打印它的那段反汇编出来看。

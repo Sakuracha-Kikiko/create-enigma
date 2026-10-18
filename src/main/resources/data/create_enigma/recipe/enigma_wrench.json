@@ -1,3 +1,24 @@
 {
-  "type": "create_enigma:enigma_wrench"
+  "type": "create_enigma:enigma_wrench",
+  "category": "equipment",
+  "pattern": [
+    "MM",
+    "MC",
+    " S"
+  ],
+  "key": {
+    "M": {
+      "item": "create:incomplete_precision_mechanism"
+    },
+    "C": {
+      "item": "create:cogwheel"
+    },
+    "S": {
+      "tag": "c:rods/wooden"
+    }
+  },
+  "result": {
+    "id": "create_enigma:enigma_wrench",
+    "count": 1
+  }
 }

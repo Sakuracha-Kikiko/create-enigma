@@ -701,10 +701,31 @@ public class EnigmaGameTests {
         helper.assertTrue(result.is(CEItems.ENIGMA_WRENCH.get()),
                 "the recipe produces " + result + " instead of the Enigma Wrench");
 
-        // The skeleton JEI draws must name the intermediates by item alone. If a progress ever
-        // appears in getIngredients, the recipe viewer answers the puzzle the scene poses.
+        // JEI decides between a shaped grid and 无序 by asking whether the recipe is a ShapedRecipe -
+        // its CraftingCategoryExtension#getWidth checks exactly that instanceof and returns 0
+        // otherwise. A 0 makes JEI lay the ingredients out as shapeless, which is what the viewer was
+        // showing. So this is the assertion that the shape is drawn at all.
+        helper.assertTrue(holder.value() instanceof ShapedRecipe,
+                "the recipe is not a ShapedRecipe, so JEI will draw it as 无序: "
+                        + holder.value().getClass().getName());
+        ShapedRecipe shaped = (ShapedRecipe) holder.value();
+        helper.assertTrue(shaped.getWidth() == 2 && shaped.getHeight() == 3,
+                "the declared shape is " + shaped.getWidth() + "x" + shaped.getHeight() + ", expected 2x3");
+
+        // A two-by-three shape has six cells and JEI maps ingredient i to grid slot {0,1,3,4,6,7};
+        // five ingredients put the rod in slot 6, the blank corner, while the table wants slot 7.
+        // That mismatch is what made JEI's transfer button move the mechanisms into the wrong cells
+        // and produce nothing, so the count and the blank cell are both load-bearing.
         var ingredients = holder.value().getIngredients();
-        helper.assertTrue(ingredients.size() == 5, "expected five ingredients, got " + ingredients.size());
+        helper.assertTrue(ingredients.size() == 6,
+                "expected six ingredients for a six-cell shape, got " + ingredients.size());
+
+        // The skeleton JEI draws must name the intermediates by item alone. If a step ever appears in
+        // getIngredients, the recipe viewer answers the puzzle the scene poses.
+        //
+        // Row-major over a two-wide pattern, ingredients 0, 1 and 2 are the cells (0,0), (1,0) and
+        // (0,1) - the three cells EnigmaWrenchRecipe.MECHANISM_CELLS pins to the world's numbers.
+        // Asserting them here is what keeps that hard-coded list honest if the json pattern changes.
         for (int i = 0; i < 3; i++) {
             helper.assertTrue(
                     ingredients.get(i).test(new ItemStack(AllItems.INCOMPLETE_PRECISION_MECHANISM.get())),
@@ -712,8 +733,10 @@ public class EnigmaGameTests {
         }
         helper.assertTrue(ingredients.get(3).test(new ItemStack(AllBlocks.COGWHEEL.get().asItem())),
                 "the fourth ingredient does not accept a cogwheel");
-        helper.assertTrue(ingredients.get(4).test(new ItemStack(net.minecraft.world.item.Items.STICK)),
-                "the fifth ingredient does not accept a wooden rod");
+        helper.assertTrue(ingredients.get(4).isEmpty(),
+                "the fifth ingredient is not the blank bottom-left cell");
+        helper.assertTrue(ingredients.get(5).test(new ItemStack(net.minecraft.world.item.Items.STICK)),
+                "the sixth ingredient does not accept a wooden rod");
 
         // JEI skips recipes whose isSpecial is true, so this single word decides whether the
         // skeleton is visible at all.
