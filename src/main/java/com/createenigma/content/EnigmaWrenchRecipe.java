@@ -65,6 +65,16 @@ public class EnigmaWrenchRecipe implements CraftingRecipe {
 
     @Override
     public boolean matches(CraftingInput input, Level level) {
+        // Logged on entry, before anything can throw. Logging only on the way out cannot tell
+        // "never called" apart from "called and blew up", and those two point at completely
+        // different problems.
+        if (countItems(input) >= 3) {
+            com.mojang.logging.LogUtils.getLogger().info(
+                    "Enigma recipe: entered {} grid={} wanted={}",
+                    input.width() + "x" + input.height(), describeGrid(input),
+                    java.util.Arrays.toString(EnigmaCodeState.progresses(level)));
+        }
+
         // A shaped recipe may sit anywhere in a larger grid, so every offset is tried. In a 3x3
         // grid a two-by-three pattern has exactly two possible positions.
         boolean matched = false;
@@ -85,6 +95,16 @@ public class EnigmaWrenchRecipe implements CraftingRecipe {
                     describeSteps(input));
         }
         return matched;
+    }
+
+    private static int countItems(CraftingInput input) {
+        int count = 0;
+        for (int i = 0; i < input.size(); i++) {
+            if (!input.getItem(i).isEmpty()) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private static String describeGrid(CraftingInput input) {
