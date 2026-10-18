@@ -7,7 +7,6 @@ import com.createenigma.registry.CERecipes;
 import com.mojang.logging.LogUtils;
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.AllItems;
-import com.simibubi.create.content.processing.sequenced.SequencedAssemblyItem;
 
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
@@ -224,22 +223,14 @@ public class EnigmaWrenchRecipe implements CraftingRecipe {
     }
 
     /**
-     * The progress a cell would display, or -1 when it holds no incomplete precision mechanism.
+     * The step a cell's mechanism is at, or -1 when it holds no incomplete precision mechanism.
      *
-     * <p>Create stores the progress as a float and displays it as {@code round(progress * 13)}, which
-     * runs 0 to 13, while the number a player reads off the item's bar is one higher: the first
-     * assembly step produces a 1/15 intermediate and the fifteenth finishes it. {@link EnigmaCode}
-     * speaks in those displayed numbers, so the one is added back here.
+     * <p>Delegates to {@link MechanismStep}, which reads the very field Create's tooltip prints.
+     * Earlier versions derived the number from the item's float progress instead, and the derivation
+     * was wrong by one at the low end - which made a world whose numbers include a 1 unbuildable.
      */
     private static int progressAt(CraftingInput input, int x, int y) {
-        ItemStack stack = at(input, x, y);
-        if (!(stack.getItem() instanceof SequencedAssemblyItem item)) {
-            return -1;
-        }
-        if (!stack.is(AllItems.INCOMPLETE_PRECISION_MECHANISM.get())) {
-            return -1;
-        }
-        return Math.round(item.getProgress(stack) * 13) + 1;
+        return MechanismStep.of(at(input, x, y));
     }
 
     /** One cell, briefly, for the log. */

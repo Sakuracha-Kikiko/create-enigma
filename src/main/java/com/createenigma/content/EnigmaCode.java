@@ -30,17 +30,22 @@ import java.util.Random;
 public final class EnigmaCode {
 
     /**
-     * How many progress values an incomplete precision mechanism can hold.
+     * How many steps this world's numbers are drawn from.
      *
-     * <p>Create stores the progress as a float and displays it as {@code round(progress * 13)}, so the
-     * underlying steps are 0 through 13 - fourteen of them. The number a player ever sees is that plus
-     * one: the first assembly step turns a gold sheet into an intermediate showing 1/15, and the
-     * fifteenth resolves it into a finished mechanism, so 0/15 and 15/15 never exist in play.
+     * <p>Create prints an incomplete precision mechanism's state as
+     * {@code 组装进度：step/(sequence.size() * loops)}, which for the mechanism is {@code n/15} - the
+     * same number {@link MechanismStep} returns and the recipe compares against. Fifteen is the
+     * finished mechanism, so the states a player can hold and place in a grid are 1 through 14,
+     * which is exactly the range this constant draws from.
      *
-     * <p>Everything above this class therefore speaks in the <b>player's</b> numbers, 1 to 14. The
-     * recipe subtracts the one back off before comparing against the stored progress. Getting this
-     * backwards is silent: the scene would say 3 and the recipe would want 2, and nothing would ever
-     * craft.
+     * <p>Everything above this class speaks in those printed numbers - no offset, no conversion.
+     *
+     * <p>That was not always so. An earlier version believed the printed number was the item's float
+     * progress scaled by 13 (the pixel width of the durability bar) and added one. The bar width is a
+     * rendering detail and the belief was false, so a mechanism the tooltip called {@code 1/15}
+     * scored as 2 and any world asking for a 1 - including this one - could not craft the wrench at
+     * all, however correctly it was built. See {@link MechanismStep} for the field that is actually
+     * on screen.
      */
     public static final int STEPS = 14;
 

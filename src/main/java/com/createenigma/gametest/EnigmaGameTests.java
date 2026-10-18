@@ -16,6 +16,7 @@ import com.createenigma.registry.CEBlocks;
 import com.createenigma.registry.CEItems;
 import com.createenigma.structure.BlockStateMatcher;
 import com.createenigma.content.EnigmaWrenchRecipe;
+import com.createenigma.content.MechanismStep;
 import com.createenigma.structure.EnigmaSchematic;
 import com.createenigma.structure.EnigmaStructure;
 import com.createenigma.structure.EnigmaStructure.Generation;
@@ -795,24 +796,53 @@ public class EnigmaGameTests {
     }
 
     /**
-     * An incomplete precision mechanism at a given displayed progress.
+     * An incomplete precision mechanism at a given step, as Create's tooltip would print it.
      *
-     * <p>Create stores the bar's value as a float and draws {@code round(progress * 13)}, so asking
-     * for displayed step n means a stored progress of {@code (n - 1) / 13} - which reproduces the
-     * number a player reads off the item exactly.
+     * <p>The step is the record's own {@code step} field - the one the tooltip shows - and the
+     * progress is set to what Create would have there, so the stack is shaped like a real one. Only
+     * the step is read by {@link MechanismStep}, which is the point: there is no arithmetic left to
+     * get wrong.
      */
     private static ItemStack mechanismAt(int displayed) {
         ItemStack stack = new ItemStack(AllItems.INCOMPLETE_PRECISION_MECHANISM.get());
         stack.set(AllDataComponents.SEQUENCED_ASSEMBLY,
                 new SequencedAssemblyRecipe.SequencedAssembly(
                         ResourceLocation.fromNamespaceAndPath(CreateEnigma.MOD_ID, "gametest"),
-                        0, (displayed - 1) / 13f));
+                        displayed, displayed / 15f));
         return stack;
     }
 
     /** A legal progress that is not this one, for the negative case. */
     private static int stepOtherThan(int displayed) {
         return displayed == 1 ? 2 : 1;
+    }
+
+    /**
+     * The step the recipe reads must be the step the tooltip prints.
+     *
+     * <p>This is the whole bug, pinned down. Every step from 0 to 15 round-trips, so an off-by-one at
+     * either end fails here instead of in front of a crafting table. The recipe used to derive the
+     * number from the item's float progress and scored a printed 1 as 2; that version would have
+     * failed this loop on its first iteration, which is exactly why it is worth having.
+     */
+    @GameTest(template = TEMPLATE)
+    public static void mechanismStepIsTheNumberOnTheTooltip(GameTestHelper helper) {
+        for (int step = 0; step <= 15; step++) {
+            int read = MechanismStep.of(mechanismAt(step));
+            helper.assertTrue(read == step,
+                    "a mechanism whose tooltip says " + step + "/15 reads as " + read);
+        }
+
+        helper.assertTrue(MechanismStep.of(new ItemStack(Items.STICK)) == MechanismStep.NOT_A_MECHANISM,
+                "a stick reports a step of " + MechanismStep.of(new ItemStack(Items.STICK)));
+
+        // Create's getStep answers 0 when the component is absent. Mirroring that rather than
+        // answering -1 keeps "what the tooltip says" and "what the recipe reads" the same function.
+        helper.assertTrue(
+                MechanismStep.of(new ItemStack(AllItems.INCOMPLETE_PRECISION_MECHANISM.get())) == 0,
+                "a mechanism carrying no assembly component does not read as 0");
+
+        helper.succeed();
     }
 
     private static String describe(GameTestHelper helper) {
