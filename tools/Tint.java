@@ -4,14 +4,21 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import javax.imageio.ImageIO;
 
 /**
  * Recolours block textures to the Enigma violet and writes a before/after sheet.
  *
- * <p>Different problem from the wrench, different method. The wrench's texture was a palette of warm
- * swatches, so rotating hue worked. These are real shaded textures, and neither of the two obvious
- * transforms reaches violet from all of them:
+ * <p>Usage: {@code java Tint.java <outDir> <in1.png> [in2.png ...]} - each input is written to
+ * {@code outDir} under its own file name, so callers name their own outputs and this cannot silently
+ * apply one texture's naming to another.
+ *
+ * <h2>Why this is not the wrench's transform</h2>
+ *
+ * <p>The wrench's texture was a palette of warm swatches, so rotating hue worked. These are real
+ * shaded textures, and neither of the two obvious transforms reaches violet from all of them:
  *
  * <ul>
  *   <li><b>Hue rotation</b> does nothing to andesite casing, which is grey and has no saturation to
@@ -25,6 +32,8 @@ import javax.imageio.ImageIO;
  * onto a dark-violet to light-violet ramp. Every material lands on the same hue family - which is the
  * point, since the aim is "clearly a creative item" rather than "surviving wood and surviving steel" -
  * while all the original shading, edges and highlights are preserved, because luminance is untouched.
+ *
+ * <p>Alpha is carried through unchanged, which matters: several of these textures are cut out.
  */
 public final class Tint {
 
@@ -33,22 +42,34 @@ public final class Tint {
     private static final int[] LIGHT = {0xb4, 0x8a, 0xd6};
 
     public static void main(String[] args) throws Exception {
-        String outDir = args[0];
-        String[] names = {"axis", "andesite_casing_short", "smooth_dark_log_top"};
-        String[] labels = {"axis", "casing", "log_top"};
-
-        BufferedImage[] originals = new BufferedImage[names.length];
-        BufferedImage[] tinted = new BufferedImage[names.length];
-
-        for (int i = 0; i < names.length; i++) {
-            originals[i] = ImageIO.read(new File(args[1 + i]));
-            tinted[i] = tint(originals[i]);
-            ImageIO.write(tinted[i], "png", new File(outDir + "/" + names[i] + ".png"));
-            System.out.println(names[i] + ": " + originals[i].getWidth() + "x" + originals[i].getHeight());
+        if (args.length < 2) {
+            System.out.println("usage: Tint <outDir> <in1.png> [in2.png ...]");
+            return;
         }
 
-        writeSheet(labels, originals, tinted, new File(outDir + "/tint_compare.png"));
-        System.out.println("wrote tinted textures and tint_compare.png to " + outDir);
+        File outDir = new File(args[0]);
+        outDir.mkdirs();
+
+        List<String> names = new ArrayList<>();
+        List<BufferedImage> originals = new ArrayList<>();
+        List<BufferedImage> tinted = new ArrayList<>();
+
+        for (int i = 1; i < args.length; i++) {
+            File in = new File(args[i]);
+            String name = in.getName().replaceAll("\\.png$", "");
+            BufferedImage source = ImageIO.read(in);
+            BufferedImage result = tint(source);
+
+            ImageIO.write(result, "png", new File(outDir, name + ".png"));
+            System.out.println(name + ": " + source.getWidth() + "x" + source.getHeight());
+
+            names.add(name);
+            originals.add(source);
+            tinted.add(result);
+        }
+
+        writeSheet(names, originals, tinted, new File(outDir, "tint_compare.png"));
+        System.out.println("wrote " + names.size() + " textures and tint_compare.png to " + outDir);
     }
 
     private static BufferedImage tint(BufferedImage in) {
@@ -78,19 +99,19 @@ public final class Tint {
         return Math.round(from + (to - from) * t);
     }
 
-    private static void writeSheet(String[] names, BufferedImage[] before, BufferedImage[] after, File target)
-            throws Exception {
+    private static void writeSheet(List<String> names, List<BufferedImage> before, List<BufferedImage> after,
+            File target) throws Exception {
         int scale = 6;
         int pad = 14;
         int labelH = 24;
-        int rowH = before[0].getHeight() * scale;
-
+        int rowH = 0;
         int cellW = 0;
         for (BufferedImage image : before) {
+            rowH = Math.max(rowH, image.getHeight() * scale);
             cellW = Math.max(cellW, image.getWidth() * scale);
         }
-        // one column per texture, two rows: original, tinted
-        int sheetW = names.length * cellW + (names.length + 1) * pad;
+
+        int sheetW = names.size() * cellW + (names.size() + 1) * pad;
         int sheetH = rowH * 2 + labelH * 2 + pad * 2;
 
         BufferedImage sheet = new BufferedImage(sheetW, sheetH, BufferedImage.TYPE_INT_ARGB);
@@ -98,18 +119,18 @@ public final class Tint {
         g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
         g.setColor(new Color(24, 24, 28));
         g.fillRect(0, 0, sheetW, sheetH);
-        g.setFont(new Font("Consolas", Font.PLAIN, 14));
+        g.setFont(new Font("Consolas", Font.PLAIN, 13));
 
         g.setColor(Color.WHITE);
-        g.drawString("original", pad, pad + 14);
-        g.drawString("violet tint", pad, pad + labelH + rowH + 14);
+        g.drawString("original", pad, pad + 13);
+        g.drawString("violet", pad, pad + labelH + rowH + 13);
 
-        for (int i = 0; i < names.length; i++) {
+        for (int i = 0; i < names.size(); i++) {
             int ox = pad + i * (cellW + pad);
-            blit(g, before[i], ox, pad + labelH, scale);
-            blit(g, after[i], ox, pad + labelH + rowH + labelH, scale);
+            blit(g, before.get(i), ox, pad + labelH, scale);
+            blit(g, after.get(i), ox, pad + labelH + rowH + labelH, scale);
             g.setColor(Color.WHITE);
-            g.drawString(names[i], ox, pad + 14);
+            g.drawString(names.get(i), ox, pad + 13);
         }
 
         g.dispose();
