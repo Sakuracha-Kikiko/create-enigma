@@ -48,6 +48,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeManager;
+import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -676,6 +677,20 @@ public class EnigmaGameTests {
 
         helper.assertTrue(holder.value() instanceof EnigmaWrenchRecipe,
                 "expected the Enigma Wrench recipe, found " + holder.value().getClass().getSimpleName());
+
+        // The crafting table finds recipes through RecipeManager.getRecipeFor(RecipeType.CRAFTING,
+        // ...), which reads an index keyed by each recipe's own getType(). If this recipe is filed
+        // under anything else - or not filed at all - the grid is never even asked about it and
+        // matches() is never called. From in front of the crafting table that looks exactly like a
+        // wrong shape, which is why three rounds of fixing the shape changed nothing.
+        var filedAsCrafting = recipes.getRecipes().stream()
+                .filter(candidate -> candidate.value() instanceof EnigmaWrenchRecipe)
+                .filter(candidate -> candidate.value().getType() == RecipeType.CRAFTING)
+                .toList();
+        helper.assertTrue(filedAsCrafting.size() == 1,
+                "expected exactly one Enigma Wrench recipe filed as " + RecipeType.CRAFTING
+                        + ", found " + filedAsCrafting.size() + "; getType() reports "
+                        + holder.value().getType());
 
         ItemStack result = holder.value().getResultItem(helper.getLevel().registryAccess());
         helper.assertTrue(result.is(CEItems.ENIGMA_WRENCH.get()),
