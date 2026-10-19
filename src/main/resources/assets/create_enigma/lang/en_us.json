@@ -1,6 +1,7 @@
 {
   "itemGroup.create_enigma.base": "Create: Enigma",
   "block.create_enigma.enigma_core": "Enigma Core",
+  "item.create_enigma.enigma_tab_icon": "Enigma Core",
   "block.create_enigma.disguised_motor": "Disguised Creative Motor",
   "block.create_enigma.creative_hand_crank": "Creative Hand Crank",
   "advancement.create_enigma.gods_glance.title": "The Gaze of the God of All Machines",

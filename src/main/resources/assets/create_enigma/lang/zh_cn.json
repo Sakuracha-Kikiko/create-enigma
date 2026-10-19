@@ -1,6 +1,7 @@
 {
   "itemGroup.create_enigma.base": "机械动力：神秘机械",
-  "block.create_enigma.enigma_core": "谜之核心",
+  "block.create_enigma.enigma_core": "神秘核心",
+  "item.create_enigma.enigma_tab_icon": "神秘核心",
   "block.create_enigma.disguised_motor": "伪装创造马达",
   "block.create_enigma.creative_hand_crank": "创造手摇曲柄",
   "advancement.create_enigma.gods_glance.title": "万机之神的侧目",
@@ -28,7 +29,7 @@
   "create_enigma.wrench.hungry": "它正渴求着更多…",
   "create_enigma.wrench.gathering": "神秘的力量正在汇聚…",
   "create_enigma.wrench.not_picky": "它已经饥饿了太久，它现在并不挑食",
-  "create_enigma.wrench.promoted": "谜之核心取代了箱子。它仍未完整。",
+  "create_enigma.wrench.promoted": "神秘核心取代了箱子。它仍未完整。",
   "create_enigma.ponder.tag.enigma": "神秘机械",
   "create_enigma.ponder.tag.enigma.description": "源初的万机之神，我祈求您降下您的目光",
   "create_enigma.ponder.mojang_enigma_true.header": "神的作品，万机之首，厄尼格默",
