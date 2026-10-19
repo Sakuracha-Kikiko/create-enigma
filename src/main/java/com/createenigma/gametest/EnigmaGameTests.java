@@ -643,22 +643,30 @@ public class EnigmaGameTests {
         AdvancementHolder root = server.getAdvancements().get(EnigmaAdvancements.ROOT);
         AdvancementHolder watched = server.getAdvancements().get(EnigmaAdvancements.PONDER_WATCHED);
         AdvancementHolder enigma = server.getAdvancements().get(EnigmaAdvancements.ENIGMA);
+        AdvancementHolder glance = server.getAdvancements().get(EnigmaAdvancements.GODS_GLANCE);
         AdvancementHolder mysticAge = server.getAdvancements().get(EnigmaAdvancements.MYSTIC_AGE);
         helper.assertTrue(root != null, "advancement " + EnigmaAdvancements.ROOT + " did not load");
         helper.assertTrue(watched != null,
                 "advancement " + EnigmaAdvancements.PONDER_WATCHED + " did not load");
         helper.assertTrue(enigma != null, "advancement " + EnigmaAdvancements.ENIGMA + " did not load");
+        helper.assertTrue(glance != null,
+                "advancement " + EnigmaAdvancements.GODS_GLANCE + " did not load");
         helper.assertTrue(mysticAge != null,
                 "advancement " + EnigmaAdvancements.MYSTIC_AGE + " did not load");
         helper.assertTrue(root.value().isRoot(), EnigmaAdvancements.ROOT + " is not a root advancement");
 
         // The chain is what fixes the display order. Siblings under one parent are laid out in the
-        // iteration order of an identity hash set, so two children of the root would swap places
+        // iteration order of an identity hash set, so two children of one parent would swap places
         // between launches; a chain has only one order. If a link broke, the advancement would
         // still be granted and simply displayed in the wrong place.
+        //
+        // gods_glance sits between enigma and mystic_age rather than beside mystic_age: hanging it
+        // under enigma as well would have made the two of them siblings, which is the one arrangement
+        // this chain exists to avoid.
         assertParent(helper, watched, EnigmaAdvancements.ROOT);
         assertParent(helper, enigma, EnigmaAdvancements.PONDER_WATCHED);
-        assertParent(helper, mysticAge, EnigmaAdvancements.ENIGMA);
+        assertParent(helper, glance, EnigmaAdvancements.ENIGMA);
+        assertParent(helper, mysticAge, EnigmaAdvancements.GODS_GLANCE);
 
         // award() returns false for an unknown criterion rather than throwing, so this is the
         // assertion that stands between a typo and a feature that silently never appears.

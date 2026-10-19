@@ -6,7 +6,7 @@
   },
   "display": {
     "announce_to_chat": false,
-    "background": "minecraft:textures/gui/advancements/backgrounds/end.png",
+    "background": "create:textures/block/palettes/stone_types/brick/granite_cut_brick.png",
     "description": {
       "translate": "advancement.create_enigma.root.desc"
     },

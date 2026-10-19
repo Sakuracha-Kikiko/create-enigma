@@ -1,5 +1,5 @@
 {
-  "parent": "create_enigma:enigma",
+  "parent": "create_enigma:gods_glance",
   "criteria": {
     "impossible": {
       "trigger": "minecraft:impossible"
