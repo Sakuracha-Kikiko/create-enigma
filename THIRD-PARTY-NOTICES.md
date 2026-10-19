@@ -47,9 +47,11 @@ inherited from Create's own model files at runtime.
 - **File:** `src/main/resources/logo.png`
 - **What it is:** the "Bugjump Studios" wordmark (Mojang's fictional studio from the Java Edition
   trailer) on a blueprint background, at 256×256.
-- **The background** is a cleaned-up copy of the blueprint artwork used by several Create addons for
-  their logo. The subject was removed with `tools/Rebuild.java`; the wordmark was then placed over the
-  repaired area, which is why that repair is not visible at logo size.
+- **The background** is a region cropped from the blueprint artwork used by several Create addons for
+  their logo — a part containing neither the subject nor the frame, scaled to 256. Nothing was
+  repaired: an earlier attempt removed the subject and rebuilt the area behind it, and every version of
+  that left a visible artifact, because the artwork's cells each carry their own shading and an
+  occluded area can be made plausible but never restored.
 - **Not covered by this mod's MIT license:** the wordmark is Mojang's, and the blueprint background is
   another project's. They are used here as fan art for a personal mod, not licensed for reuse.
 
