@@ -2,7 +2,6 @@ package com.createenigma.client.ponder;
 
 import com.createenigma.content.EnigmaCodeState;
 import com.createenigma.registry.CEItems;
-import com.simibubi.create.AllBlocks;
 
 import net.createmod.catnip.math.Pointing;
 import net.createmod.ponder.api.scene.SceneBuilder;
@@ -224,14 +223,19 @@ public final class EnigmaScenes {
         scene.title("creative_hand_crank", "用创造手摇曲柄产生旋转力");
         scene.configureBasePlate(0, 0, 5);
         scene.showBasePlate();
-        scene.world().showSection(util.select().layersFrom(1), Direction.DOWN);
+        // Everything above the plate except the stressometer. That one is part of the structure too,
+        // but it must not be visible yet - it is the comparison at the end - so it is revealed on its
+        // own later. Putting it in the structure rather than placing it at runtime is what makes the
+        // reveal possible at all: a block set outside the schematic's bounds is quietly dropped.
+        scene.world().showSection(
+                util.select().layersFrom(1).substract(util.select().position(1, 4, 3)), Direction.DOWN);
         scene.idle(10);
 
         Vec3 crank = new Vec3(2.5, 2.5, 2.5);
         Vec3 side = new Vec3(2.0, 2.5, 2.5);
 
         scene.overlay().showText(70)
-                .text("手摇曲柄可以让玩家手动施加旋转力")
+                .text("创造手摇曲柄可以让玩家手动施加旋转力")
                 .pointAt(new Vec3(2.5, 2.5, 2.0))
                 .placeNearTarget();
         scene.idle(80);
@@ -274,7 +278,10 @@ public final class EnigmaScenes {
         scene.idle(25);
 
         // The comparison: a second gauge on top of the column.
-        scene.world().setBlock(new BlockPos(1, 4, 3), AllBlocks.STRESSOMETER.get().defaultBlockState(), true);
+        // The comparison gauge, revealed now rather than placed now: it was in the structure all
+        // along, hidden by the subtract() above. This is the step that was missing when the gauge was
+        // set at runtime instead - outside the schematic's bounds, the game drops it silently.
+        scene.world().showSection(util.select().position(1, 4, 3), Direction.DOWN);
         scene.overlay().showText(60)
                 .text("和手摇曲柄相比，创造手摇曲柄能提供大得多的旋转力")
                 .pointAt(new Vec3(1.5, 4.0, 3.5))
@@ -291,7 +298,7 @@ public final class EnigmaScenes {
 
         scene.addKeyframe();
         scene.overlay().showText(50)
-                .text("按住右键，让它逆时针旋转")
+                .text("……不过，它还是需要你自己来摇")
                 .pointAt(side)
                 .placeNearTarget();
         scene.idle(35);

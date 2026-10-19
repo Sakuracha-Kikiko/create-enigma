@@ -43,11 +43,11 @@
   "create_enigma.ponder.enigma_wrench_2.text_5": "%s",
   "create_enigma.ponder.enigma_wrench_2.text_6": "……但那是什么意思？",
   "create_enigma.ponder.creative_hand_crank.header": "用创造手摇曲柄产生旋转力",
-  "create_enigma.ponder.creative_hand_crank.text_1": "手摇曲柄可以让玩家手动施加旋转力",
+  "create_enigma.ponder.creative_hand_crank.text_1": "创造手摇曲柄可以让玩家手动施加旋转力",
   "create_enigma.ponder.creative_hand_crank.text_2": "按住右键，让它逆时针旋转",
   "create_enigma.ponder.creative_hand_crank.text_3": "潜行并按住右键，让它顺时针旋转",
   "create_enigma.ponder.creative_hand_crank.text_4": "和手摇曲柄相比，创造手摇曲柄能提供大得多的旋转力",
-  "create_enigma.ponder.creative_hand_crank.text_5": "按住右键，让它逆时针旋转",
+  "create_enigma.ponder.creative_hand_crank.text_5": "……不过，它还是需要你自己来摇",
   "advancement.create_enigma.root": "欢迎来到机械动力…？",
   "advancement.create_enigma.root.desc": "……你确定这是机械动力吗？"
 }
