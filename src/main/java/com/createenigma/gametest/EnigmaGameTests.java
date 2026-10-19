@@ -23,6 +23,7 @@ import com.createenigma.registry.CEBlockEntities;
 import com.createenigma.registry.CEBlocks;
 import com.createenigma.registry.CEItems;
 import com.createenigma.structure.BlockStateMatcher;
+import com.createenigma.content.EnigmaOfferings;
 import com.createenigma.content.EnigmaWrenchRecipe;
 import com.createenigma.content.MechanismStep;
 import com.createenigma.structure.EnigmaSchematic;
@@ -60,6 +61,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -807,6 +809,58 @@ public class EnigmaGameTests {
                                 + " but the rotated brass hand has " + rotated);
             }
         }
+
+        helper.succeed();
+    }
+
+    /**
+     * The offering rule: a chest holding nothing but the Hand of God, in any quantity.
+     *
+     * <p>Three verdicts, and each of them has a case that a simpler rule would get wrong:
+     *
+     * <ul>
+     *   <li>a chest with dirt and no Hand is not "empty" - it is spoiled, and saying "you have not
+     *       shown enough sincerity" to a player who filled it with junk would be a lie;</li>
+     *   <li>a chest with a Hand <b>and</b> dirt is not acceptable - one item cannot be slipped past
+     *       the rule by stacking it next to the right thing;</li>
+     *   <li>several Hands are acceptable, because the quantity is not fixed yet.</li>
+     * </ul>
+     *
+     * <p>Tested on a plain {@link SimpleContainer}: the rule is a function of contents, so it needs
+     * no world, and this is the part that would otherwise only be checked by hand in game. The step
+     * that acts on the verdict - consume, then replace the block - still needs a player, and
+     * {@code makeMockServerPlayerInLevel} crashes this pack (Create's login event), so that step is
+     * verified in game.
+     */
+    @GameTest(template = TEMPLATE)
+    public static void offeringsMustBeHandsAndNothingElse(GameTestHelper helper) {
+        SimpleContainer empty = new SimpleContainer(27);
+        helper.assertTrue(EnigmaOfferings.judge(empty) == EnigmaOfferings.Verdict.EMPTY,
+                "an empty chest is not EMPTY, it is " + EnigmaOfferings.judge(empty));
+
+        SimpleContainer junk = new SimpleContainer(27);
+        junk.setItem(4, new ItemStack(Items.DIRT, 12));
+        helper.assertTrue(EnigmaOfferings.judge(junk) == EnigmaOfferings.Verdict.IMPURE,
+                "a chest of dirt with no offering reads as " + EnigmaOfferings.judge(junk));
+
+        SimpleContainer mixed = new SimpleContainer(27);
+        mixed.setItem(0, new ItemStack(CEItems.HAND_OF_GOD.get()));
+        mixed.setItem(9, new ItemStack(Items.DIRT));
+        helper.assertTrue(EnigmaOfferings.judge(mixed) == EnigmaOfferings.Verdict.IMPURE,
+                "a Hand next to dirt reads as " + EnigmaOfferings.judge(mixed));
+
+        SimpleContainer hands = new SimpleContainer(27);
+        hands.setItem(3, new ItemStack(CEItems.HAND_OF_GOD.get(), 3));
+        hands.setItem(20, new ItemStack(CEItems.HAND_OF_GOD.get(), 2));
+        helper.assertTrue(EnigmaOfferings.judge(hands) == EnigmaOfferings.Verdict.ACCEPTABLE,
+                "five Hands across two slots read as " + EnigmaOfferings.judge(hands));
+
+        helper.assertTrue(hands.countItem(CEItems.HAND_OF_GOD.get()) == 5,
+                "the test container does not actually hold five Hands");
+
+        EnigmaOfferings.consume(hands);
+        helper.assertTrue(EnigmaOfferings.judge(hands) == EnigmaOfferings.Verdict.EMPTY,
+                "consume left something behind: " + EnigmaOfferings.judge(hands));
 
         helper.succeed();
     }

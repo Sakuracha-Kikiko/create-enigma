@@ -9,6 +9,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.Container;
 import net.minecraft.world.Containers;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -17,7 +18,11 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+
+import org.jetbrains.annotations.Nullable;
 
 /**
  * 神秘扳手 / Enigma Wrench
@@ -79,13 +84,53 @@ public class EnigmaWrenchItem extends Item {
                 EnigmaValidator.analyse(level, pos, structure, Generation.PRIMAL);
 
         if (report.isComplete()) {
-            promote(level, pos, player);
+            Container chest = offeringChest(level, pos);
+            EnigmaOfferings.Verdict verdict =
+                    chest == null ? EnigmaOfferings.Verdict.EMPTY : EnigmaOfferings.judge(chest);
+
+            switch (verdict) {
+                case ACCEPTABLE -> {
+                    EnigmaOfferings.consume(chest);
+                    promote(level, pos, player);
+                }
+                case EMPTY -> refuse(level, pos, player,
+                        "create_enigma.wrench.offerings_empty", 1.4F);
+                case IMPURE -> refuse(level, pos, player,
+                        "create_enigma.wrench.offerings_impure", 0.6F);
+            }
         } else {
             player.displayClientMessage(readout(report, player.isShiftKeyDown()), false);
             level.playSound(null, pos, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.5F, 1.4F);
         }
 
         return InteractionResult.SUCCESS;
+    }
+
+    /**
+     * The chest as one container, including both halves of a double chest.
+     *
+     * <p>{@code override = true} is not optional here. With {@code false} the combiner refuses when a
+     * solid block sits above the chest - which {@code isChestBlockedAt} is meant to test - and the
+     * machine is built around this chest, so there is very often something above it. The failure is
+     * silent: the container comes back {@code null} and every offering would read as "empty" no
+     * matter what the player put in.
+     *
+     * <p>Reaching the combined view also matters for a double chest. A single {@code ChestBlockEntity}
+     * exposes only its own twenty-seven slots, so an offering in the far half would be invisible.
+     */
+    @Nullable
+    private static Container offeringChest(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof ChestBlock chest)) {
+            return null;
+        }
+        return ChestBlock.getContainer(chest, state, level, pos, true);
+    }
+
+    /** The machine is complete but the offering is not acceptable. Nothing changes in the world. */
+    private static void refuse(Level level, BlockPos pos, Player player, String key, float pitch) {
+        player.displayClientMessage(Component.translatable(key).withStyle(ChatFormatting.GRAY), false);
+        level.playSound(null, pos, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.5F, pitch);
     }
 
     /**
@@ -127,9 +172,10 @@ public class EnigmaWrenchItem extends Item {
     /**
      * Swaps the chest for the core, which is the moment the machine stops being a pile of blocks.
      *
-     * <p><b>The chest is emptied onto the ground first.</b> A chest is a container and the machine
-     * is built around it, so a player will have used it as one; quietly deleting the contents would
-     * be the kind of loss that has no explanation and no undo.
+     * <p>By the time this runs the chest holds nothing but Hands of God, and those have already been
+     * taken, so the drop below usually moves nothing. It is kept because the contents are still the
+     * player's: if some path ever reaches here with a chest that has other things in it, losing them
+     * silently would be the kind of loss with no explanation and no undo.
      *
      * <p>Nothing else moves: the core takes the chest's position, which is also the anchor position,
      * so every offset and every later validation still refers to the same place.

@@ -30,6 +30,8 @@
   "create_enigma.wrench.gathering": "Something is gathering here...",
   "create_enigma.wrench.not_picky": "It has been hungry too long. It is not picky any more.",
   "create_enigma.wrench.promoted": "The core has taken the chest's place. It is still not complete.",
+  "create_enigma.wrench.offerings_empty": "You have not shown enough sincerity",
+  "create_enigma.wrench.offerings_impure": "He does not like it. Take it away.",
   "create_enigma.ponder.tag.enigma": "The Enigma",
   "create_enigma.ponder.tag.enigma.description": "God of the first of all machines, cast down your gaze upon us",
   "create_enigma.ponder.mojang_enigma_true.header": "The Work of God, First of All Machines, Enigma",
