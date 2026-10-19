@@ -42,5 +42,16 @@ The creative hand crank's arm and base, and the Enigma Wrench's handle and gear,
 this mod that contain **no geometry**: each is a `parent` plus a texture rebinding, so the shapes are
 inherited from Create's own model files at runtime.
 
+### The mod logo
+
+- **File:** `src/main/resources/logo.png`
+- **What it is:** the "Bugjump Studios" wordmark (Mojang's fictional studio from the Java Edition
+  trailer) on a blueprint background, at 256×256.
+- **The background** is a cleaned-up copy of the blueprint artwork used by several Create addons for
+  their logo. The subject was removed with `tools/Rebuild.java`; the wordmark was then placed over the
+  repaired area, which is why that repair is not visible at logo size.
+- **Not covered by this mod's MIT license:** the wordmark is Mojang's, and the blueprint background is
+  another project's. They are used here as fan art for a personal mod, not licensed for reuse.
+
 Everything else this mod draws reuses Create's block textures by name at runtime, without
 redistributing them; see the "贴图" section of `README.md`.
