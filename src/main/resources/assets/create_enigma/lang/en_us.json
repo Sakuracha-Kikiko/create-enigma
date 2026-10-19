@@ -42,6 +42,12 @@
   "create_enigma.ponder.enigma_wrench_2.text_4": "You also make out some information:",
   "create_enigma.ponder.enigma_wrench_2.text_5": "%s",
   "create_enigma.ponder.enigma_wrench_2.text_6": "...but what does that mean?",
+  "create_enigma.ponder.creative_hand_crank.header": "Generating Rotational Force with a Creative Hand Crank",
+  "create_enigma.ponder.creative_hand_crank.text_1": "Hand Cranks can be used by players to apply rotational force manually",
+  "create_enigma.ponder.creative_hand_crank.text_2": "Hold Right-Click to rotate it Counter-Clockwise",
+  "create_enigma.ponder.creative_hand_crank.text_3": "Sneak and Hold Right-Click to rotate it Clockwise",
+  "create_enigma.ponder.creative_hand_crank.text_4": "Compared with a Hand Crank, a Creative Hand Crank provides far greater rotational force",
+  "create_enigma.ponder.creative_hand_crank.text_5": "Hold Right-Click to rotate it Counter-Clockwise",
   "advancement.create_enigma.root": "Welcome to Create...?",
   "advancement.create_enigma.root.desc": "...are you sure this is Create?"
 }

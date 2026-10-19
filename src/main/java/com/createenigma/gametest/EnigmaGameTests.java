@@ -1,5 +1,9 @@
 package com.createenigma.gametest;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -8,6 +12,8 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.createenigma.CreateEnigma;
 import com.createenigma.content.CreativeHandCrankBlockEntity;
 import com.createenigma.content.EnigmaAdvancements;
@@ -706,6 +712,53 @@ public class EnigmaGameTests {
                 "mystic_grace does not use inventory_changed; it would never fire on obtaining the crank");
 
         helper.succeed();
+    }
+
+    /**
+     * {@code zh_cn} and {@code en_us} must declare exactly the same keys.
+     *
+     * <p>This exists because the same mistake was made twice: a line was added to a scene and to one
+     * language file, and the other language fell back to whatever Ponder does with a missing entry.
+     * For ponder scenes that is the <b>derived key printed on screen</b> - which is how a scene once
+     * displayed {@code create_enigma.ponder.creative_hand_crank.text_1} in place of a sentence.
+     * Nothing throws and nothing logs; the only symptom is a string nobody meant to show.
+     *
+     * <p>A set comparison catches both directions: a key added to one file only, and one removed from
+     * one file only.
+     */
+    @GameTest(template = TEMPLATE)
+    public static void langFilesDeclareTheSameKeys(GameTestHelper helper) {
+        Set<String> zh = langKeys(helper, "zh_cn");
+        Set<String> en = langKeys(helper, "en_us");
+
+        helper.assertTrue(!zh.isEmpty(), "zh_cn.json parsed as empty");
+
+        Set<String> missingInEn = new TreeSet<>(zh);
+        missingInEn.removeAll(en);
+        Set<String> missingInZh = new TreeSet<>(en);
+        missingInZh.removeAll(zh);
+
+        helper.assertTrue(missingInEn.isEmpty(), "keys only in zh_cn: " + missingInEn);
+        helper.assertTrue(missingInZh.isEmpty(), "keys only in en_us: " + missingInZh);
+
+        helper.succeed();
+    }
+
+    private static Set<String> langKeys(GameTestHelper helper, String locale) {
+        // Read from the classpath, not from the server's resource manager: lang files live under
+        // assets/, and a server only mounts data packs - getResource would find nothing there. The
+        // classpath holds the same file on both sides and inside the jar.
+        String path = "/assets/" + CreateEnigma.MOD_ID + "/lang/" + locale + ".json";
+        try (InputStream in = EnigmaGameTests.class.getResourceAsStream(path)) {
+            if (in == null) {
+                throw new AssertionError("missing " + path + " on the classpath");
+            }
+            JsonObject json = JsonParser.parseReader(
+                    new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
+            return new TreeSet<>(json.keySet());
+        } catch (IOException e) {
+            throw new RuntimeException("could not read " + path, e);
+        }
     }
 
     // --------------------------------------------------------------------------------
