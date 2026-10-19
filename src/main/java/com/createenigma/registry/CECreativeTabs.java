@@ -30,6 +30,7 @@ public class CECreativeTabs {
                         output.accept(CEBlocks.DISGUISED_MOTOR.asItem());
                         output.accept(CEBlocks.CREATIVE_HAND_CRANK.asItem());
                         output.accept(CEItems.ENIGMA_WRENCH.asItem());
+                        output.accept(CEItems.HAND_OF_GOD.asItem());
                         output.accept(EnigmaSchematic.blueprintStack());
                     })
                     .build());

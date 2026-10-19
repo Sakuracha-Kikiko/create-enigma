@@ -21,19 +21,21 @@ public class CEItems {
                     .register();
 
     /**
-     * The icon of the advancement tab: Create's brass hand, turned upside down.
+     * 神之手 / Hand of God: the icon of the advancement tab, and an item in its own right.
      *
-     * <p>An advancement's icon has to be an item, and a rotation is a property of the model, so the
-     * rotation cannot be expressed on {@code create:brass_hand} itself - it is a flat
-     * {@code item/generated} model with default transforms. This item exists only to carry a model
-     * that is the same texture with {@code display.gui.rotation} set to 180 degrees about Z, which is
-     * what the advancement screen renders through.
+     * <p>It exists first as the tab's icon. An advancement's icon has to be an item and a rotation is
+     * a property of the model, so the rotation cannot be expressed on {@code create:brass_hand} - that
+     * is a flat {@code item/generated} model with default transforms. This item carries a model that
+     * is the same texture with {@code display.gui.rotation} set to 180 degrees about Z, and that is
+     * the transform the advancements screen renders icons through.
      *
-     * <p>It is not added to the creative tab, and the registry's default tab is null, so it never
-     * appears as a usable item.
+     * <p>It is craftable as well, from Create's brass hand recipe turned upside down: same
+     * ingredients, same tags, the shape rotated half a turn - so it is the hand pointing down, which
+     * is what the icon shows. A gametest compares the two recipes cell by cell so the two cannot
+     * drift apart.
      */
-    public static final ItemEntry<Item> TAB_ICON =
-            CreateEnigma.registrate().item("enigma_tab_icon", Item::new).register();
+    public static final ItemEntry<Item> HAND_OF_GOD =
+            CreateEnigma.registrate().item("hand_of_god", Item::new).register();
 
     public static void register() {
         // Class loading performs the registration.

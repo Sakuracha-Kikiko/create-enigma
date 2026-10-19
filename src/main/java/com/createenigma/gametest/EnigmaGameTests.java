@@ -60,9 +60,11 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.CraftingInput;
+import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.RecipeType;
@@ -750,6 +752,72 @@ public class EnigmaGameTests {
         helper.assertTrue(missingInZh.isEmpty(), "keys only in en_us: " + missingInZh);
 
         helper.succeed();
+    }
+
+    /**
+     * 神之手 is exactly Create's brass hand recipe, rotated 180 degrees.
+     *
+     * <p>Compared against {@code create:brass_hand} cell by cell rather than spelled out here: the
+     * point is that the two recipes are the same shape seen from the other side, so a copy of the
+     * pattern in this test would only assert that two copies of the same thing agree. If Create ever
+     * changes their recipe, this fails, which is the right moment to look at ours again.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void handOfGodIsTheBrassHandRecipeUpsideDown(GameTestHelper helper) {
+        RecipeManager recipes = helper.getLevel().getServer().getRecipeManager();
+
+        ResourceLocation id = ResourceLocation.fromNamespaceAndPath(CreateEnigma.MOD_ID, "hand_of_god");
+        RecipeHolder<?> holder = recipes.byKey(id).orElse(null);
+        helper.assertTrue(holder != null, "recipe " + id + " did not load");
+        helper.assertTrue(holder.value() instanceof ShapedRecipe,
+                "expected a ShapedRecipe, found " + holder.value().getClass().getSimpleName());
+        ShapedRecipe ours = (ShapedRecipe) holder.value();
+
+        helper.assertTrue(ours.getWidth() == 3 && ours.getHeight() == 3,
+                "the declared shape is " + ours.getWidth() + "x" + ours.getHeight() + ", expected 3x3");
+
+        ItemStack result = ours.getResultItem(helper.getLevel().registryAccess());
+        helper.assertTrue(result.is(CEItems.HAND_OF_GOD.get()),
+                "the recipe produces " + result + " instead of the Hand of God");
+
+        // The path is part of the id: the file is data/create/recipe/crafting/kinetics/brass_hand.json,
+        // so the recipe is create:crafting/kinetics/brass_hand, not create:brass_hand. Looking it up
+        // by the latter reports "not present" and reads as if Create had removed the recipe.
+        ResourceLocation originalId =
+                ResourceLocation.fromNamespaceAndPath("create", "crafting/kinetics/brass_hand");
+        RecipeHolder<?> originalHolder = recipes.byKey(originalId).orElse(null);
+        helper.assertTrue(originalHolder != null,
+                "recipe " + originalId + " is not present, so there is nothing to be the flip of");
+        helper.assertTrue(originalHolder.value() instanceof ShapedRecipe,
+                "create:brass_hand is not a ShapedRecipe any more");
+        ShapedRecipe original = (ShapedRecipe) originalHolder.value();
+        helper.assertTrue(original.getWidth() == 3 && original.getHeight() == 3,
+                "create:brass_hand is no longer 3x3, so this mod's flip of it needs revisiting");
+
+        // Row-major, so cell index is column + row * width; a 180-degree rotation maps (x, y) to
+        // (2 - x, 2 - y).
+        List<Ingredient> mine = ours.getIngredients();
+        List<Ingredient> theirs = original.getIngredients();
+        for (int row = 0; row < 3; row++) {
+            for (int column = 0; column < 3; column++) {
+                Ingredient here = mine.get(column + row * 3);
+                Ingredient rotated = theirs.get((2 - column) + (2 - row) * 3);
+                helper.assertTrue(sameItems(here, rotated),
+                        "cell " + column + "," + row + " holds " + here
+                                + " but the rotated brass hand has " + rotated);
+            }
+        }
+
+        helper.succeed();
+    }
+
+    /** Whether two ingredients accept the same set of items; an empty cell matches an empty cell. */
+    private static boolean sameItems(Ingredient a, Ingredient b) {
+        Set<Item> first = new TreeSet<>(java.util.Comparator.comparing(Item::toString));
+        for (ItemStack stack : a.getItems()) first.add(stack.getItem());
+        Set<Item> second = new TreeSet<>(java.util.Comparator.comparing(Item::toString));
+        for (ItemStack stack : b.getItems()) second.add(stack.getItem());
+        return first.equals(second);
     }
 
     private static Set<String> langKeys(GameTestHelper helper, String locale) {
