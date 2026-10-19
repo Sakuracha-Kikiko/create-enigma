@@ -8,6 +8,9 @@ version="${mod_version}"
 displayName="${mod_name}"
 authors="${mod_authors}"
 description='''${mod_description}'''
+# Shown in the mod list. Square, 256x256: the source artwork is 1920x1080 with the wordmark about
+# 1275 wide, so anything uncropped ends up a thin strip in a 64-pixel tile.
+logoFile="logo.png"
 
 [[dependencies.${mod_id}]]
     modId="neoforge"
