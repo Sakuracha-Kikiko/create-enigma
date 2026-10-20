@@ -58,7 +58,7 @@ gradlew.bat build          # 本项目未附 wrapper，见下方「构建」
 Maven 的 IPv6 路由是黑洞的。构建请使用工作区里已备好的工具链：
 
 ```powershell
-$tc = '..\..\Create Test1\.toolchain'      # 项目位于 DSH\create_test_2\create-enigma，故上溯两层
+$tc = '..\..\toolchain'                    # 项目位于 DSH\minecraft\dev\create-enigma\create-enigma，故上溯三层
 $env:JAVA_HOME      = "$tc\jdk21"
 $env:GRADLE_USER_HOME = "$tc\gh"          # 共享热缓存，NeoForm 反编译结果可复用
 $env:JAVA_TOOL_OPTIONS = '-Djava.net.preferIPv4Stack=true'
@@ -68,13 +68,14 @@ $env:JAVA_TOOL_OPTIONS = '-Djava.net.preferIPv4Stack=true'
 首次（在新机器上）构建要反编译 Minecraft 并下载约 786 MiB 资源，十几分钟；
 本机缓存已热，增量构建约 14 秒。
 
-#### ⚠️ 工具链**故意**留在 `Create Test1` 下面，不要"顺手"搬
+#### 工具链在 `minecraft\toolchain`，被 `minecraft\dev` 下的所有项目共用
 
-`.toolchain` 位于另一个工作区（`DSH\Create Test1\.toolchain`，约 1.8 GB），这是**刻意的**，
-不要搬进本项目。两个原因：
+它**不在仓库里**，也不该搬进仓库。2026-10-20 工作区重组之前它叫 `DSH\Create Test1\.toolchain`，
+现在归到 `DSH\minecraft\toolchain`（约 1.8 GB），和 `minecraft\dev` 下的各个 mod 项目并列。
+位置变了，但"共用、不要各自复制一份"这一点没变：
 
-1. **它不是本项目独有的。** `Create Test1\chain-reaction` 是另一个独立项目，
-   目录里还装着那边的参考源码（`ref/create-src`）、脚本和日志。整个搬走等于把别人的东西也搬了。
+1. **它不是本项目独有的。** `minecraft\dev` 下还有 `create-chain-reaction`、`asterism-sorcery` 等项目，
+   工具链里的 `ref/create-src` 就是它们共同的参考源码。
 2. **`gh`（约 1.4 GB）是 Gradle 依赖缓存，搬动有实际风险。** 缓存里存有绝对路径，
    搬完之后 Gradle 若判定缓存失效就要重新解析依赖——而本机到 Maven 的 IPv6 是黑洞的，
    **那可能是构建直接停摆，而不是慢一点。**
@@ -83,10 +84,10 @@ $env:JAVA_TOOL_OPTIONS = '-Djava.net.preferIPv4Stack=true'
 > `java.toolchain.languageVersion = JavaLanguageVersion.of(21)` 是 Gradle 的
 > **Java 工具链特性**，和这个**目录名**只是撞词。**没有任何构建文件真的引用那个目录路径。**
 
-#### 临时/分析文件放 `create_test_2\.work\`
+#### 临时/分析文件放 `minecraft\dev\create-enigma\.work\`
 
-本项目产出的临时文件、反编译分析工具、dump 都放在 `DSH\create_test_2\.work\`。
-它**在 git 仓库之外**（仓库根是 `create_test_2\create-enigma`），所以不会被提交，
+本项目产出的临时文件、反编译分析工具、dump 都放在 `DSH\minecraft\dev\create-enigma\.work\`。
+它**在 git 仓库之外**（仓库根是 `create-enigma\create-enigma`），所以不会被提交，
 也就不需要写进 `.gitignore`。
 
 ---
@@ -181,7 +182,7 @@ $env:JAVA_TOOL_OPTIONS = '-Djava.net.preferIPv4Stack=true'
 改完在项目根目录跑一次：
 
 ```powershell
-$tc = '..\..\Create Test1\.toolchain'
+$tc = '..\..\toolchain'
 & "$tc\jdk21\bin\java.exe" tools\PrepareEnigmaStructure.java `
     "$tc\ref\create-src\Create-mc1.21.1-6.0.10\src\main\resources\assets\create\ponder\creative_motor_mojang.nbt" `
     src\main\resources\data\create_enigma\structure\mojang_enigma.nbt
@@ -432,16 +433,17 @@ fatal: not a git repository (or any of the parent directories): .git
 所以下面这些目录**可以**（子目录也行）：
 
 ```
-DSH\create_test_2\create-enigma          ✅
-DSH\create_test_2\create-enigma\src      ✅
+DSH\minecraft\dev\create-enigma\create-enigma          ✅
+DSH\minecraft\dev\create-enigma\create-enigma\src      ✅
 ```
 
 而这些**不行**——它们不是仓库，只是仓库上层的目录：
 
 ```
-DSH\create_test_2                        ❌
-DSH                                      ❌
-C:\Users\赵胤棋                           ❌   ← 新开的终端默认就在这里
+DSH\minecraft\dev\create-enigma                        ❌
+DSH\minecraft                                          ❌
+DSH                                                    ❌
+C:\Users\赵胤棋                                        ❌   ← 新开的终端默认就在这里
 ```
 
 先 `cd` 进去再敲命令：
