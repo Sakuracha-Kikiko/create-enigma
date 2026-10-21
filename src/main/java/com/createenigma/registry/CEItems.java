@@ -37,6 +37,21 @@ public class CEItems {
     public static final ItemEntry<Item> HAND_OF_GOD =
             CreateEnigma.registrate().item("hand_of_god", Item::new).register();
 
+    /**
+     * 熄灭蛋糕 / Extinguished Cake: what a blaze cake base becomes when it is spouted with water.
+     *
+     * <p>Create's blaze cake is the base plus 250 mB of lava; this is that recipe with water, so the
+     * two sit next to each other in JEI and differ by one ingredient.
+     *
+     * <p>It is not food. A blaze cake is fuel rather than a meal, and this one has had the fire put
+     * out - what it does instead is not decided yet, so for now it does nothing.
+     *
+     * <p>Its texture is Create's blaze cake, referenced by name: a placeholder until something of its
+     * own is drawn.
+     */
+    public static final ItemEntry<Item> EXTINGUISHED_CAKE =
+            CreateEnigma.registrate().item("extinguished_cake", Item::new).register();
+
     public static void register() {
         // Class loading performs the registration.
     }

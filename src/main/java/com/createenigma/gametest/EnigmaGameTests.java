@@ -35,7 +35,9 @@ import com.simibubi.create.AllBlockEntityTypes;
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.AllDataComponents;
 import com.simibubi.create.AllItems;
+import com.simibubi.create.AllRecipeTypes;
 import com.simibubi.create.api.stress.BlockStressValues;
+import com.simibubi.create.content.fluids.transfer.FillingRecipe;
 import com.simibubi.create.content.kinetics.crank.HandCrankBlock;
 import com.simibubi.create.content.kinetics.crank.HandCrankBlockEntity;
 import com.simibubi.create.content.decoration.palettes.AllPaletteBlocks;
@@ -78,6 +80,7 @@ import net.minecraft.world.level.block.SlabBlock;
 import net.minecraft.world.level.block.SnowyDirtBlock;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.level.block.state.properties.SlabType;
@@ -85,6 +88,8 @@ import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlac
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import net.minecraft.world.phys.Vec3;
 
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 
 /**
@@ -861,6 +866,49 @@ public class EnigmaGameTests {
         EnigmaOfferings.consume(hands);
         helper.assertTrue(EnigmaOfferings.judge(hands) == EnigmaOfferings.Verdict.EMPTY,
                 "consume left something behind: " + EnigmaOfferings.judge(hands));
+
+        helper.succeed();
+    }
+
+    /**
+     * 熄灭蛋糕 is Create's blaze cake, with water where the lava was.
+     *
+     * <p>Checked in both directions on purpose. "Accepts water" alone would still pass if the recipe
+     * also accepted lava, which would make it a second way to craft a blaze cake - the one thing this
+     * recipe must not be. The item side is checked too, because a filling recipe with the wrong input
+     * still fills something.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void extinguishedCakeIsBlazeCakeFilledWithWater(GameTestHelper helper) {
+        RecipeManager recipes = helper.getLevel().getServer().getRecipeManager();
+        ResourceLocation id = ResourceLocation.fromNamespaceAndPath(CreateEnigma.MOD_ID, "extinguished_cake");
+
+        RecipeHolder<?> holder = recipes.byKey(id).orElse(null);
+        helper.assertTrue(holder != null, "recipe " + id + " did not load");
+        helper.assertTrue(holder.value() instanceof FillingRecipe,
+                "expected a Create filling recipe, found " + holder.value().getClass().getSimpleName());
+        helper.assertTrue(holder.value().getType() == AllRecipeTypes.FILLING.getType(),
+                "the recipe is filed as " + holder.value().getType() + " instead of "
+                        + AllRecipeTypes.FILLING.getType() + ", so no spout or basin will offer it");
+
+        FillingRecipe filling = (FillingRecipe) holder.value();
+        SizedFluidIngredient fluid = filling.getRequiredFluid();
+        helper.assertTrue(fluid != null, "the filling recipe requires no fluid");
+        helper.assertTrue(fluid.amount() == 250,
+                "it fills " + fluid.amount() + " mB, expected 250 like a blaze cake");
+        helper.assertTrue(fluid.test(new FluidStack(Fluids.WATER, 250)),
+                "it does not accept water: " + fluid);
+        helper.assertTrue(!fluid.test(new FluidStack(Fluids.LAVA, 250)),
+                "it accepts lava as well, which would make it a second blaze cake recipe");
+
+        var items = filling.getIngredients();
+        helper.assertTrue(!items.isEmpty()
+                        && items.get(0).test(new ItemStack(AllItems.BLAZE_CAKE_BASE.get())),
+                "the item ingredient is not a blaze cake base: " + items);
+
+        ItemStack result = filling.getResultItem(helper.getLevel().registryAccess());
+        helper.assertTrue(result.is(CEItems.EXTINGUISHED_CAKE.get()),
+                "the recipe produces " + result + " instead of the Extinguished Cake");
 
         helper.succeed();
     }
