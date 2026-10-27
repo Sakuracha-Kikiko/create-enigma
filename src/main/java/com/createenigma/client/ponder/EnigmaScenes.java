@@ -375,23 +375,31 @@ public final class EnigmaScenes {
      * Grows the scene's bounding box to include a region before anything is placed in it.
      *
      * <p>This is Ponderer's {@code preScanBounds}, and it is how a scene shows a block that is not in
-     * its schematic. The chain, from the 1.0.82 bytecode:
+     * its schematic. Both write paths are gated on the bounds, in
+     * {@code net.createmod.ponder.foundation.instruction}:
      *
      * <pre>
-     * WorldInstructions.setBlock(pos, state, redraw)
-     *   -&gt; setBlocks(select().position(pos), ...)
-     *   -&gt; new ReplaceBlocksInstruction(selection, ...)
-     *        private void lambda$runModification$0(PonderLevel world, BlockPos pos) {
-     *            if (!world.getBounds().isInside(pos)) return;   // silently dropped
-     *            world.setBlock(pos, state, flags);
-     *        }
+     * // ReplaceBlocksInstruction.runModification (line 29)
+     * selection.forEach(pos -&gt; {
+     *     if (!level.getBounds().isInside(pos))
+     *         return;                                  // silently dropped
+     *     level.setBlockAndUpdate(pos, stateToUse.apply(prevState));
+     * });
+     *
+     * // BlockEntityDataInstruction.runModification (line 29) opens with the same guard
      * </pre>
      *
      * <p>So a placement past the edge is not drawn off-screen or clipped - it is never written at
-     * all, and the section shown over it is empty. {@code BlockEntityDataInstruction} (what
-     * {@code modifyBlockEntityNBT} compiles to) opens with the same guard, so the NBT would be lost
-     * too. {@code SchematicLevel.setBlock} does grow the box, but that line is only reached after the
-     * guard passes, which is why growing it here first is what makes the difference.
+     * all, and the section shown over it is empty; the NBT would be lost the same way.
+     * {@code SchematicLevel.setBlock} does grow the box ({@code bounds = BBHelper.encapsulate(bounds,
+     * pos)}, line 206), but that line is only reached after the guard passes, which is why growing it
+     * here first is what makes the difference.
+     *
+     * <p>Rendering itself has no bounds check: {@code PonderScene}'s only {@code isInside} calls are
+     * in {@code rayTraceScene}, for tooltips. {@code DebugScenes.offScreenScene} - "Out of bounds /
+     * configureBasePlate", line 144 - shows blocks outside the base plate on purpose, captioned
+     * "Blocks outside of the base plate do not affect scaling". Out-of-plate blocks display fine; it
+     * is writing them that needs the box.
      */
     private static void preScanBounds(SceneBuilder scene, BlockPos from, BlockPos to) {
         scene.addInstruction(ps -> {
