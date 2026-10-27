@@ -14,6 +14,7 @@ import net.createmod.ponder.api.element.TextElementBuilder;
 import net.createmod.ponder.api.scene.SceneBuilder;
 import net.createmod.ponder.api.scene.SceneBuildingUtil;
 import net.createmod.ponder.api.scene.Selection;
+import net.createmod.ponder.foundation.instruction.RotateSceneInstruction;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
@@ -170,9 +171,12 @@ public final class EnigmaScenes {
         line(scene, 40, "这太没有逻辑了", HUB);
         scene.idle(50);
 
-        // The export's rotate_camera_y step: 180 degrees, at the moment the answer arrives.
-        scene.rotateCameraY(180);
-        scene.idle(25);
+        // The export's rotate_camera_y step, which turns on both axes: Ponderer stores degrees and
+        // degreesX separately, and this scene has 180 in each. RotateSceneInstruction takes x first,
+        // and is the only public way in - WorldInstructions offers rotateCameraY alone, which is why
+        // this looked like a missing feature.
+        scene.addInstruction(new RotateSceneInstruction(180f, 180f, true));
+        scene.idle(20);
 
         line(scene, 60, "但你会明白祂的。", new Vec3(7.5, 0.0, 7.5), PonderPalette.RED).attachKeyFrame();
         scene.idle(70);
@@ -280,14 +284,13 @@ public final class EnigmaScenes {
                 AllBlocks.LARGE_COGWHEEL.get().defaultBlockState(), 16f);
         offering(scene, util, new BlockPos(3, 2, 4), AllBlocks.FLYWHEEL.get().defaultBlockState(), 16f);
 
-        line(scene, 40, "飞轮是旋转力的象征，也象征着机械本身。", new Vec3(3.0, 2.0, 4.0));
+        line(scene, 40, "飞轮…", new Vec3(3.0, 2.0, 4.0));
         scene.idle(20);
 
         // A blaze burner, lit regardless of what the machine is made of, then extinguished by the cake.
-        scene.world().setBlock(new BlockPos(3, 1, 1), AllBlocks.BLAZE_BURNER.get().defaultBlockState()
-                .setValue(BlazeBurnerBlock.HEAT_LEVEL, BlazeBurnerBlock.HeatLevel.KINDLED), true);
-        scene.world().modifyBlockEntityNBT(util.select().position(new BlockPos(3, 1, 1)),
-                BlockEntity.class, tag -> tag.putBoolean("isCreative", true), true);
+        place(scene, util, new BlockPos(3, 1, 1), AllBlocks.BLAZE_BURNER.get().defaultBlockState()
+                .setValue(BlazeBurnerBlock.HEAT_LEVEL, BlazeBurnerBlock.HeatLevel.KINDLED),
+                tag -> tag.putBoolean("isCreative", true));
         scene.idle(10);
 
         scene.overlay().showControls(new Vec3(3.5, 2.0, 1.5), Pointing.DOWN, 20)
@@ -300,14 +303,14 @@ public final class EnigmaScenes {
                 true);
         scene.idle(10);
 
-        line(scene, 40, "熄灭蛋糕拥有最纯粹的燃烧热。", new Vec3(3.5, 2.0, 1.5));
+        line(scene, 40, "熄灭蛋糕…", new Vec3(3.5, 2.0, 1.5));
         scene.idle(20);
 
         scene.world().createItemEntity(new Vec3(1.5, 2.5, 2.5), new Vec3(0.0, 0.1, 0.0),
                 new ItemStack(CEItems.HAND_OF_GOD.get()));
         scene.idle(30);
 
-        line(scene, 40, "……以及神之手。", new Vec3(1.5, 1.0, 2.5));
+        line(scene, 40, "…以及神之手。", new Vec3(1.5, 1.0, 2.5));
         scene.idle(20);
     }
 
@@ -384,19 +387,32 @@ public final class EnigmaScenes {
         scene.idle(10);
     }
 
-    /**
-     * One offering, placed already spinning.
-     *
-     * <p>{@code Speed} is the only key any of the four reads - the export's NBT step carries nothing
-     * else - and a redraw is required: the gear's model is chosen from the speed it is told about, so
-     * without {@code true} the block appears and then stands still.
-     */
+    /** One offering: gear or flywheel, axled across the platform, already turning. */
     private static void offering(SceneBuilder scene, SceneBuildingUtil util, BlockPos pos,
             BlockState state, float speed) {
-        scene.world().setBlock(pos, state.setValue(RotatedPillarBlock.AXIS, Direction.Axis.Z), true);
-        scene.world().modifyBlockEntityNBT(util.select().position(pos), BlockEntity.class,
-                tag -> tag.putFloat("Speed", speed), true);
+        place(scene, util, pos, state.setValue(RotatedPillarBlock.AXIS, Direction.Axis.Z),
+                tag -> tag.putFloat("Speed", speed));
         scene.idle(2);
+    }
+
+    /**
+     * One {@code set_block} out of the export: written without a redraw, patched, then revealed as a
+     * section from above - the section is what carries the ten-tick drop into place.
+     *
+     * <p>{@code setBlock} on its own lands the block at full size in a single tick, which reads as a
+     * different cut; that was one of the things that made this scene look unlike the authored one.
+     * The NBT goes in here rather than in the placement because the gear model is chosen from the
+     * speed its block entity is told about, so without the redraw it appears and then stands still.
+     */
+    private static void place(SceneBuilder scene, SceneBuildingUtil util, BlockPos pos, BlockState state,
+            Consumer<CompoundTag> nbt) {
+        Selection selection = util.select().position(pos);
+        scene.world().setBlock(pos, state, false);
+        if (nbt != null) {
+            scene.world().modifyBlockEntityNBT(selection, BlockEntity.class, nbt, true);
+        }
+        scene.world().showSection(selection, Direction.DOWN);
+        scene.idle(10);
     }
 
     // ---------------------------------------------------------------------------------------
