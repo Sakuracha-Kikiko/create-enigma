@@ -257,15 +257,16 @@ public final class EnigmaScenes {
      * Scene 4: the three offerings.
      *
      * <p>The gear train is placed at the coordinates the export gives it, z = 5 inclusive - one block
-     * past the platform's far edge, since the structure is five deep (z = 0..4). That is fine: Ponder
-     * does not bound-check a placement. {@code SchematicLevel.setBlock} subtracts the anchor, stores
-     * the block and then <em>grows</em> the scene's bounding box around it with
-     * {@code BBHelper.encapsulate}, so the three gears stand past the lip exactly as authored. The
-     * base plate is a separate element of its own size, so it does not grow with them.
+     * past the platform's far edge, since the structure is five deep (z = 0..4). That is allowed, but
+     * it is not free: the scene's bounding box has to cover it first, which is what
+     * {@link #preScanBounds} does at the top of the scene. Without that, the blocks are written into
+     * the level and then never drawn - the same instruction sequence Create uses to show stress
+     * gauges sitting off the edge of a schematic.
      */
     public static void theOfferings(SceneBuilder scene, SceneBuildingUtil util) {
         scene.title("mystic_offerings", "神秘之物");
         scene.world().showSection(util.select().everywhere(), Direction.UP);
+        preScanBounds(scene, new BlockPos(1, 0, 1), new BlockPos(3, 2, 5));
         scene.idle(20);
 
         line(scene, 60, "据说神秘机械喜欢一些神秘的物品", PLATFORM);
@@ -284,7 +285,7 @@ public final class EnigmaScenes {
                 AllBlocks.LARGE_COGWHEEL.get().defaultBlockState(), 16f);
         offering(scene, util, new BlockPos(3, 2, 4), AllBlocks.FLYWHEEL.get().defaultBlockState(), 16f);
 
-        line(scene, 40, "飞轮…", new Vec3(3.0, 2.0, 4.0));
+        line(scene, 40, "象征旋转与静止的飞轮…", new Vec3(3.0, 2.0, 4.0));
         scene.idle(20);
 
         // A blaze burner, lit regardless of what the machine is made of, then extinguished by the cake.
@@ -303,14 +304,14 @@ public final class EnigmaScenes {
                 true);
         scene.idle(10);
 
-        line(scene, 40, "熄灭蛋糕…", new Vec3(3.5, 2.0, 1.5));
+        line(scene, 40, "象征燃烧与熄灭的熄灭蛋糕…", new Vec3(3.5, 2.0, 1.5));
         scene.idle(20);
 
         scene.world().createItemEntity(new Vec3(1.5, 2.5, 2.5), new Vec3(0.0, 0.1, 0.0),
                 new ItemStack(CEItems.HAND_OF_GOD.get()));
         scene.idle(30);
 
-        line(scene, 40, "…以及神之手。", new Vec3(1.5, 1.0, 2.5));
+        line(scene, 40, "…以及象征机械与工具的神之手。", new Vec3(1.5, 1.0, 2.5));
         scene.idle(20);
     }
 
@@ -318,6 +319,7 @@ public final class EnigmaScenes {
     public static void callingMysticMachine(SceneBuilder scene, SceneBuildingUtil util) {
         scene.title("mystic_call", "呼唤神秘机械");
         scene.world().showSection(util.select().everywhere(), Direction.UP);
+        preScanBounds(scene, new BlockPos(7, 3, 8), new BlockPos(7, 3, 8));
         framed(scene, .5f, 270f);
         scene.idle(20);
 
@@ -359,6 +361,35 @@ public final class EnigmaScenes {
         scene.addInstruction(ps -> {
             LerpedFloat yRotation = ps.getTransform().yRotation;
             yRotation.startWithValue(yRotation.getChaseTarget() + degrees);
+        });
+    }
+
+    /**
+     * Grows the scene's bounding box to include a region before anything is placed in it.
+     *
+     * <p>This is Ponderer's {@code preScanBounds}, and it is how a scene shows a block that is not in
+     * its schematic. The chain, from the 1.0.82 bytecode:
+     *
+     * <pre>
+     * WorldInstructions.setBlock(pos, state, redraw)
+     *   -&gt; setBlocks(select().position(pos), ...)
+     *   -&gt; new ReplaceBlocksInstruction(selection, ...)
+     *        private void lambda$runModification$0(PonderLevel world, BlockPos pos) {
+     *            if (!world.getBounds().isInside(pos)) return;   // silently dropped
+     *            world.setBlock(pos, state, flags);
+     *        }
+     * </pre>
+     *
+     * <p>So a placement past the edge is not drawn off-screen or clipped - it is never written at
+     * all, and the section shown over it is empty. {@code BlockEntityDataInstruction} (what
+     * {@code modifyBlockEntityNBT} compiles to) opens with the same guard, so the NBT would be lost
+     * too. {@code SchematicLevel.setBlock} does grow the box, but that line is only reached after the
+     * guard passes, which is why growing it here first is what makes the difference.
+     */
+    private static void preScanBounds(SceneBuilder scene, BlockPos from, BlockPos to) {
+        scene.addInstruction(ps -> {
+            ps.getWorld().getBounds().encapsulate(from);
+            ps.getWorld().getBounds().encapsulate(to);
         });
     }
 
