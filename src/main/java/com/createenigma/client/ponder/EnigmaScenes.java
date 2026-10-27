@@ -44,6 +44,13 @@ import java.util.function.Consumer;
  * which is exactly what happened once. Write the sentence; put the translation in the lang file
  * under the derived key if one is wanted, and it wins over the fallback.
  *
+ * <p><b>Which copy is on screen:</b> the lang file. {@code PonderLocalization.getSpecific} resolves
+ * {@code I18n.get(create_enigma.ponder.<sceneId>.<key>)} and only falls back to the registered
+ * string when nothing is registered for it, so once a line has a lang entry, editing the Java string
+ * changes nothing at all. Every scene line is therefore kept in three places - the authored DSL, this
+ * file, and {@code lang/zh_cn.json} + {@code lang/en_us.json} - and the two lang files are the ones
+ * that must move when the wording does.
+ *
  * <p>The digits are the exception: they differ per world, so there is nothing to translate. They are
  * passed as the fallback themselves, which means the line reads correctly with no lang entry at all.
  */
@@ -430,6 +437,12 @@ public final class EnigmaScenes {
      * One {@code set_block} out of the export: written without a redraw, patched, then revealed as a
      * section from above - the section is what carries the ten-tick drop into place.
      *
+     * <p>The drop does not block the timeline. In the authored scene the {@code idle} after a
+     * {@code set_block} is two ticks, while its {@code entranceDuration} is ten, so a row of
+     * placements starts one after another and their drops overlap. Pausing for the whole ten ticks
+     * here made each gear land complete before the next appeared, which both slowed the cascade by
+     * five and hid the drop entirely - it read as blocks that had always been there.
+     *
      * <p>{@code setBlock} on its own lands the block at full size in a single tick, which reads as a
      * different cut; that was one of the things that made this scene look unlike the authored one.
      * The NBT goes in here rather than in the placement because the gear model is chosen from the
@@ -443,7 +456,6 @@ public final class EnigmaScenes {
             scene.world().modifyBlockEntityNBT(selection, BlockEntity.class, nbt, true);
         }
         scene.world().showSection(selection, Direction.DOWN);
-        scene.idle(10);
     }
 
     // ---------------------------------------------------------------------------------------
