@@ -11,6 +11,7 @@ import net.createmod.catnip.animation.LerpedFloat;
 import net.createmod.catnip.math.Pointing;
 import net.createmod.ponder.api.PonderPalette;
 import net.createmod.ponder.api.element.TextElementBuilder;
+import net.createmod.ponder.api.element.WorldSectionElement;
 import net.createmod.ponder.api.scene.SceneBuilder;
 import net.createmod.ponder.api.scene.SceneBuildingUtil;
 import net.createmod.ponder.api.scene.Selection;
@@ -463,7 +464,31 @@ public final class EnigmaScenes {
         if (nbt != null) {
             scene.world().modifyBlockEntityNBT(selection, BlockEntity.class, nbt, true);
         }
+        claim(scene, selection);
         scene.world().showSection(selection, Direction.DOWN);
+    }
+
+    /**
+     * Takes a position away from whichever section is already drawing it.
+     *
+     * <p>Sections are additive: a section keeps drawing whatever stands in its selection, including
+     * air that becomes a block later. So placing a block inside the structure that
+     * {@code showSection(util.select().everywhere(), ...)} already covers gives two copies - the old
+     * section redraws and shows it standing at its final position, and the one-block section added on
+     * top of it drops in over ten ticks. The result reads as a block fading into a block that was
+     * already there.
+     *
+     * <p>This is what Ponderer's generated support does too: {@code SceneSectionOwnership.release}
+     * walks every section and calls {@code section.erase(selection)} before showing the animated one.
+     * Positions outside the structure never had an owner, which is why the gears hanging off the far
+     * edge never showed the problem and the flywheel and blaze burner did.
+     */
+    private static void claim(SceneBuilder scene, Selection selection) {
+        scene.addInstruction(ps -> ps.forEach(WorldSectionElement.class, section -> {
+            if (!section.isEmpty()) {
+                section.erase(selection);
+            }
+        }));
     }
 
     // ---------------------------------------------------------------------------------------
