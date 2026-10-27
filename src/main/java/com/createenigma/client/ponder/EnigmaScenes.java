@@ -252,12 +252,12 @@ public final class EnigmaScenes {
     /**
      * Scene 4: the three offerings.
      *
-     * <p>The gear train is placed at the coordinates the export gives it, z = 5 inclusive. That is one
-     * block past the platform's far edge - the structure is five deep, z = 0..4 - so Ponder drops all
-     * three gears and only the flywheel at z = 4 appears. They are deliberately left at the authored
-     * coordinates: moving them here would make this file quietly disagree with the Ponderer scene it
-     * is ported from, and the scene has to be fixed where it is authored. Growing the structure by one
-     * row, or pulling these three blocks forward, is the fix on the other side.
+     * <p>The gear train is placed at the coordinates the export gives it, z = 5 inclusive - one block
+     * past the platform's far edge, since the structure is five deep (z = 0..4). That is fine: Ponder
+     * does not bound-check a placement. {@code SchematicLevel.setBlock} subtracts the anchor, stores
+     * the block and then <em>grows</em> the scene's bounding box around it with
+     * {@code BBHelper.encapsulate}, so the three gears stand past the lip exactly as authored. The
+     * base plate is a separate element of its own size, so it does not grow with them.
      */
     public static void theOfferings(SceneBuilder scene, SceneBuildingUtil util) {
         scene.title("mystic_offerings", "神秘之物");
@@ -437,8 +437,8 @@ public final class EnigmaScenes {
         scene.showBasePlate();
         // Everything above the plate except the stressometer. That one is part of the structure too,
         // but it must not be visible yet - it is the comparison at the end - so it is revealed on its
-        // own later. Putting it in the structure rather than placing it at runtime is what makes the
-        // reveal possible at all: a block set outside the schematic's bounds is quietly dropped.
+        // own later. Being in the structure is what gives it a section: a block placed at runtime
+        // arrives at full size with no section to slide in.
         scene.world().showSection(
                 util.select().layersFrom(1).substract(util.select().position(1, 4, 3)), Direction.DOWN);
         scene.idle(10);
@@ -490,9 +490,8 @@ public final class EnigmaScenes {
         scene.idle(25);
 
         // The comparison: a second gauge on top of the column.
-        // The comparison gauge, revealed now rather than placed now: it was in the structure all
-        // along, hidden by the subtract() above. This is the step that was missing when the gauge was
-        // set at runtime instead - outside the schematic's bounds, the game drops it silently.
+        // Revealed now rather than placed now: it was in the structure all along, hidden by the
+        // subtract() above, so it can slide in as a section.
         scene.world().showSection(util.select().position(1, 4, 3), Direction.DOWN);
         scene.overlay().showText(60)
                 .text("和手摇曲柄相比，创造手摇曲柄能提供大得多的旋转力")
