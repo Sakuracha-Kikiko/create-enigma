@@ -74,13 +74,24 @@ public class EnigmaPonderPlugin implements PonderPlugin {
      *
      * <p>{@code addStoryBoard} has no overload without a schematic - every scene is placed on some
      * structure, even one whose only content is a floating wrench and some text. This is the
-     * five-by-ten platform the scenes were written against.
+     * five-by-ten platform the scenes were written against, taken from the exported scene set.
      *
      * <p>The path follows Ponder's own rule: {@code <namespace>:ponder/<path>.nbt}. Ponder appends
      * the {@code ponder/} prefix and the {@code .nbt} suffix itself, so neither appears here.
      */
-    private static final ResourceLocation FLOOR_SCHEMATIC =
-            ResourceLocation.fromNamespaceAndPath(CreateEnigma.MOD_ID, "floor");
+    private static final ResourceLocation PLATFORM_SCHEMATIC =
+            ResourceLocation.fromNamespaceAndPath(CreateEnigma.MOD_ID, "basic");
+
+    /**
+     * The machine as it stands: the scene author's own copy of Create's {@code creative_motor_mojang},
+     * fifteen wide, five tall, fifteen deep.
+     *
+     * <p>Our copy rather than Create's own file: the scenes were framed, lit and pointed at from this
+     * one, and a structure that drifts away from the schematic a scene was composed against is the
+     * kind of silent difference nobody notices until the machine is not where the text points.
+     */
+    private static final ResourceLocation MACHINE_SCHEMATIC =
+            ResourceLocation.fromNamespaceAndPath(CreateEnigma.MOD_ID, "creative_motor_mojang");
 
     /**
      * Create's schematic for the machine.
@@ -155,9 +166,14 @@ public class EnigmaPonderPlugin implements PonderPlugin {
         LOGGER.info("Enigma ponder: unlocked, registering wrench scenes for {} under tag {}",
                 ENIGMA_WRENCH, ENIGMA_TAG);
 
-        // Both scenes are staged on the same small platform; neither draws a structure of its own.
-        helper.addStoryBoard(ENIGMA_WRENCH, FLOOR_SCHEMATIC, EnigmaScenes::callingTheMachine, ENIGMA_TAG);
-        helper.addStoryBoard(ENIGMA_WRENCH, FLOOR_SCHEMATIC, EnigmaScenes::theWrenchNumbers, ENIGMA_TAG);
+        // The six scenes, in the order they were authored in. Ponder lists them under the item in
+        // registration order, so this is the reading order the chapter shows.
+        helper.addStoryBoard(ENIGMA_WRENCH, MACHINE_SCHEMATIC, EnigmaScenes::theMachine, ENIGMA_TAG);
+        helper.addStoryBoard(ENIGMA_WRENCH, PLATFORM_SCHEMATIC, EnigmaScenes::callingTheMachine, ENIGMA_TAG);
+        helper.addStoryBoard(ENIGMA_WRENCH, PLATFORM_SCHEMATIC, EnigmaScenes::theWrenchNumbers, ENIGMA_TAG);
+        helper.addStoryBoard(ENIGMA_WRENCH, MACHINE_SCHEMATIC, EnigmaScenes::theMysticMachine, ENIGMA_TAG);
+        helper.addStoryBoard(ENIGMA_WRENCH, PLATFORM_SCHEMATIC, EnigmaScenes::theOfferings, ENIGMA_TAG);
+        helper.addStoryBoard(ENIGMA_WRENCH, MACHINE_SCHEMATIC, EnigmaScenes::callingMysticMachine, ENIGMA_TAG);
 
         // Earned by obtaining the crank, so it has its own gate.
         if (EnigmaPonderUnlockWatcher.isCrankUnlocked()) {

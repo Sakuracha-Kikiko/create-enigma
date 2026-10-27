@@ -1,9 +1,16 @@
 package com.createenigma.client.ponder;
 
 import com.createenigma.content.EnigmaCodeState;
+import com.createenigma.content.EnigmaCoreBlock;
+import com.createenigma.registry.CEBlocks;
 import com.createenigma.registry.CEItems;
+import com.simibubi.create.AllBlocks;
+import com.simibubi.create.content.processing.burner.BlazeBurnerBlock;
 
+import net.createmod.catnip.animation.LerpedFloat;
 import net.createmod.catnip.math.Pointing;
+import net.createmod.ponder.api.PonderPalette;
+import net.createmod.ponder.api.element.TextElementBuilder;
 import net.createmod.ponder.api.scene.SceneBuilder;
 import net.createmod.ponder.api.scene.SceneBuildingUtil;
 import net.createmod.ponder.api.scene.Selection;
@@ -11,7 +18,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.RotatedPillarBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.function.Consumer;
@@ -120,29 +129,77 @@ public final class EnigmaScenes {
         scene.idle(20);
     }
 
-    /** First wrench scene: calling on the machine, and being told what it wants first. */
+    // ---------------------------------------------------------------------------------------
+    // 神秘机械 — the six ported scenes
+    //
+    // Hand-ported from the Ponderer export of 2026-10-27 (config/ponderer/scripts/enigma_wrench.json:
+    // six scenes, 94 steps). The DSL file is what the author writes and what playback runs, so it -
+    // not the generated Java module - is the specification these methods follow: step order,
+    // positions, colours, durations and NBT are reproduced one for one.
+    //
+    // Two things in the export have no counterpart in Ponder's API:
+    //
+    //   · per-block entrance animations. Every placed block carries
+    //     "entranceAnimation": "down"; Ponder places a block in a single tick and has no per-block
+    //     reveal - only a whole section can fade in through showSection. The offerings appear at once.
+    //   · the X component of rotate_camera_y ("degreesX"). Ponder's scene camera turns about Y only.
+    //
+    // Ponderer stays the authoring tool: change the scene there, re-export, and diff against these
+    // methods - the shape of the diff is the instruction.
+    // ---------------------------------------------------------------------------------------
+
+    /** Where the machine's own scenes look: above its core, at (7, 3, 8) in a 15 × 5 × 15 structure. */
+    private static final Vec3 HUB = new Vec3(7.5, 3.0, 8.5);
+
+    /** Where the wrench scenes look: the middle of the 5 × 10 × 5 platform, one block above its face. */
+    private static final Vec3 PLATFORM = new Vec3(2.5, 1.0, 2.5);
+
+    /** Scene 0: looking at the machine, and failing to name it. */
+    public static void theMachine(SceneBuilder scene, SceneBuildingUtil util) {
+        scene.title("enigma_machine", "Enigma");
+        scene.world().showSection(util.select().everywhere(), Direction.UP);
+        framed(scene, .5f, 270f);
+        scene.idle(20);
+
+        line(scene, 60, "在令人惊恐的低语之中，一幅神秘的画面涌入你的脑中", HUB);
+        scene.idle(80);
+        line(scene, 60, "……这是什么？", HUB);
+        scene.idle(80);
+        line(scene, 40, "不，这根本不是机械动力", HUB);
+        scene.idle(50);
+        line(scene, 40, "这太没有逻辑了", HUB);
+        scene.idle(50);
+
+        // The export's rotate_camera_y step: 180 degrees, at the moment the answer arrives.
+        scene.rotateCameraY(180);
+        scene.idle(25);
+
+        line(scene, 60, "但你会明白祂的。", new Vec3(7.5, 0.0, 7.5), PonderPalette.RED).attachKeyFrame();
+        scene.idle(70);
+        line(scene, 60, "万机之神的作品，不容任何人玷污。", null, PonderPalette.RED);
+        scene.idle(20);
+    }
+
+    /** Scene 1: the call, and the relic it requires. */
     public static void callingTheMachine(SceneBuilder scene, SceneBuildingUtil util) {
         scene.title("enigma_wrench_1", "呼唤万机之神");
         scene.world().showSection(util.select().everywhere(), Direction.UP);
         scene.idle(20);
 
-        text(scene, "若要呼唤伟大的万机之神……");
+        line(scene, 60, "若要呼唤伟大的万机之神……", PLATFORM);
         scene.idle(80);
 
-        scene.world().createItemEntity(new Vec3(2.5, 3.0, 2.5), new Vec3(0.0, 0.1, 0.0),
-                new ItemStack(CEItems.ENIGMA_WRENCH.get()));
-        scene.idle(10);
+        tossWrench(scene);
 
-        scene.addKeyframe();
-        text(scene, "……需要先取得祂的遗物，神秘扳手。");
+        line(scene, 60, "……需要先取得祂的遗物，神秘扳手", PLATFORM).attachKeyFrame();
         scene.idle(20);
     }
 
     /**
      * Second wrench scene: what the wrench is made of, and this world's three numbers.
      *
-     * <p>The digits come from {@link EnigmaCodeSyncClient}, which the server fills in on login. They
-     * are the fallback text itself rather than a translation argument: there is nothing about three
+     * <p>The digits come from {@link EnigmaCodeState}, which the server fills in on login. They are
+     * the fallback text itself rather than a translation argument: there is nothing about three
      * digits that a language could translate, and a lang entry would only be a second place for them
      * to go stale.
      */
@@ -151,40 +208,195 @@ public final class EnigmaScenes {
         scene.world().showSection(util.select().everywhere(), Direction.UP);
         scene.idle(20);
 
-        scene.world().createItemEntity(new Vec3(2.5, 3.0, 2.5), new Vec3(0.0, 0.1, 0.0),
-                new ItemStack(CEItems.ENIGMA_WRENCH.get()));
-        scene.idle(10);
+        tossWrench(scene);
 
-        text(scene, "你从低语中抓住了一些启示，");
+        line(scene, 60, "你从低语中抓住了一些启示，", PLATFORM);
         scene.idle(80);
-        text(scene, "神秘扳手的基质与扳手并无不同，");
+        line(scene, 60, "神秘扳手的基质与扳手并无不同，", PLATFORM);
         scene.idle(80);
-        text(scene, "但它拥有更精密的构件。");
+        line(scene, 60, "但它拥有更精密的构件", PLATFORM);
         scene.idle(80);
-        text(scene, "你还解读出了一些信息，");
+        line(scene, 60, "你还解读出了一些信息，", PLATFORM);
         scene.idle(80);
 
-        scene.addKeyframe();
         // The digits go through the lang entry's %s rather than being the displayed text: Ponder
         // always resolves the positional key and shows it when untranslated, so a line with no entry
         // prints "create_enigma.ponder.enigma_wrench_2.text_5" on screen. The first argument is a
         // fallback that Ponder does not render; it is passed here only to keep the call readable.
         scene.overlay().showText(60)
                 .text(EnigmaCodeState.describe(null), EnigmaCodeState.describe(null))
-                .pointAt(new Vec3(2.5, 1.0, 2.5))
-                .placeNearTarget();
+                .pointAt(PLATFORM)
+                .placeNearTarget()
+                .attachKeyFrame();
         scene.idle(80);
 
-        text(scene, "……但那是什么意思？");
+        line(scene, 60, "……但那是什么意思？", PLATFORM);
         scene.idle(20);
     }
 
-    /** Every text line in these scenes is the same shape; this keeps them from drifting apart. */
-    private static void text(SceneBuilder scene, String line) {
-        scene.overlay().showText(60)
-                .text(line)
-                .pointAt(new Vec3(2.5, 1.0, 2.5))
-                .placeNearTarget();
+    /** Scene 3: what the machine is called, and what it is for. */
+    public static void theMysticMachine(SceneBuilder scene, SceneBuildingUtil util) {
+        scene.title("mystic_machine", "神秘机械");
+        scene.world().showSection(util.select().everywhere(), Direction.UP);
+        framed(scene, .5f, 270f);
+        scene.idle(20);
+
+        line(scene, 60, "这是被称作\u201c神秘机械\u201d之物", HUB);
+        scene.idle(80);
+        line(scene, 60, "你并不知晓它从何而来，它又究竟是什么", HUB);
+        scene.idle(80);
+        line(scene, 60, "但你有预感，它将为你揭示一个神秘的新世界", HUB, PonderPalette.GREEN);
+        scene.idle(80);
+    }
+
+    /**
+     * Scene 4: the three offerings.
+     *
+     * <p>The gear train is placed at the coordinates the export gives it, z = 5 inclusive. That is one
+     * block past the platform's far edge - the structure is five deep, z = 0..4 - so Ponder drops all
+     * three gears and only the flywheel at z = 4 appears. They are deliberately left at the authored
+     * coordinates: moving them here would make this file quietly disagree with the Ponderer scene it
+     * is ported from, and the scene has to be fixed where it is authored. Growing the structure by one
+     * row, or pulling these three blocks forward, is the fix on the other side.
+     */
+    public static void theOfferings(SceneBuilder scene, SceneBuildingUtil util) {
+        scene.title("mystic_offerings", "神秘之物");
+        scene.world().showSection(util.select().everywhere(), Direction.UP);
+        scene.idle(20);
+
+        line(scene, 60, "据说神秘机械喜欢一些神秘的物品", PLATFORM);
+        scene.idle(80);
+        line(scene, 60, "这些神秘之物对新一代工程师们毫无用处，早已遗落在历史之中", PLATFORM);
+        scene.idle(80);
+        line(scene, 60, "但没关系，神秘的启示早已给予你一切", PLATFORM);
+        scene.idle(80);
+        line(scene, 40, "比如说……", PLATFORM).attachKeyFrame();
+        scene.idle(40);
+
+        offering(scene, util, new BlockPos(1, 0, 5),
+                AllBlocks.LARGE_COGWHEEL.get().defaultBlockState(), 16f);
+        offering(scene, util, new BlockPos(2, 1, 5), AllBlocks.COGWHEEL.get().defaultBlockState(), -32f);
+        offering(scene, util, new BlockPos(3, 2, 5),
+                AllBlocks.LARGE_COGWHEEL.get().defaultBlockState(), 16f);
+        offering(scene, util, new BlockPos(3, 2, 4), AllBlocks.FLYWHEEL.get().defaultBlockState(), 16f);
+
+        line(scene, 40, "飞轮是旋转力的象征，也象征着机械本身。", new Vec3(3.0, 2.0, 4.0));
+        scene.idle(20);
+
+        // A blaze burner, lit regardless of what the machine is made of, then extinguished by the cake.
+        scene.world().setBlock(new BlockPos(3, 1, 1), AllBlocks.BLAZE_BURNER.get().defaultBlockState()
+                .setValue(BlazeBurnerBlock.HEAT_LEVEL, BlazeBurnerBlock.HeatLevel.KINDLED), true);
+        scene.world().modifyBlockEntityNBT(util.select().position(new BlockPos(3, 1, 1)),
+                BlockEntity.class, tag -> tag.putBoolean("isCreative", true), true);
+        scene.idle(10);
+
+        scene.overlay().showControls(new Vec3(3.5, 2.0, 1.5), Pointing.DOWN, 20)
+                .rightClick()
+                .withItem(new ItemStack(CEItems.EXTINGUISHED_CAKE.get()));
+        scene.idle(10);
+
+        scene.world().modifyBlock(new BlockPos(3, 1, 1),
+                state -> state.setValue(BlazeBurnerBlock.HEAT_LEVEL, BlazeBurnerBlock.HeatLevel.SMOULDERING),
+                true);
+        scene.idle(10);
+
+        line(scene, 40, "熄灭蛋糕拥有最纯粹的燃烧热。", new Vec3(3.5, 2.0, 1.5));
+        scene.idle(20);
+
+        scene.world().createItemEntity(new Vec3(1.5, 2.5, 2.5), new Vec3(0.0, 0.1, 0.0),
+                new ItemStack(CEItems.HAND_OF_GOD.get()));
+        scene.idle(30);
+
+        line(scene, 40, "……以及神之手。", new Vec3(1.5, 1.0, 2.5));
+        scene.idle(20);
+    }
+
+    /** Scene 5: what to do once the offerings have been accepted. */
+    public static void callingMysticMachine(SceneBuilder scene, SceneBuildingUtil util) {
+        scene.title("mystic_call", "呼唤神秘机械");
+        scene.world().showSection(util.select().everywhere(), Direction.UP);
+        framed(scene, .5f, 270f);
+        scene.idle(20);
+
+        line(scene, 60, "若想取得神秘机械的认可……", HUB);
+        scene.idle(80);
+        line(scene, 60, "……需要先向祂献出你的诚意", HUB);
+        scene.idle(80);
+        line(scene, 60, "待你足够虔诚之后……", HUB);
+        scene.idle(65);
+
+        scene.overlay().showControls(new Vec3(7.5, 4.0, 8.5), Pointing.DOWN, 20)
+                .rightClick()
+                .withItem(new ItemStack(CEItems.ENIGMA_WRENCH.get()));
+        scene.idle(25);
+
+        scene.world().replaceBlocks(util.select().position(new BlockPos(7, 3, 8)),
+                CEBlocks.ENIGMA_CORE.get().defaultBlockState()
+                        .setValue(EnigmaCoreBlock.ASSEMBLED, true), true);
+        scene.idle(5);
+
+        line(scene, 60, "……使用神秘扳手来呼唤祂", HUB);
+        scene.idle(20);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Shared step shapes
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * The export's opening camera: half scale, turned a quarter past the front.
+     *
+     * <p>Ponderer places this step with duration 0, so the scene <em>starts</em> framed. Ponder's
+     * public {@code rotateCameraY} eases the turn over the ticks that follow instead, which would
+     * make the first second of every machine scene a sweep. Setting the current value and the chase
+     * target together leaves nothing to ease.
+     */
+    private static void framed(SceneBuilder scene, float scale, float degrees) {
+        scene.scaleSceneView(scale);
+        scene.addInstruction(ps -> {
+            LerpedFloat yRotation = ps.getTransform().yRotation;
+            yRotation.startWithValue(yRotation.getChaseTarget() + degrees);
+        });
+    }
+
+    /** One text line, pointing at {@code point} when there is one. */
+    private static TextElementBuilder line(SceneBuilder scene, int duration, String text, Vec3 point) {
+        return line(scene, duration, text, point, null);
+    }
+
+    /** The same, in a colour. Red is the god speaking; green is an answer that is not a warning. */
+    private static TextElementBuilder line(SceneBuilder scene, int duration, String text, Vec3 point,
+            PonderPalette colour) {
+        TextElementBuilder builder = scene.overlay().showText(duration).text(text);
+        if (point != null) {
+            builder.pointAt(point);
+        }
+        if (colour != null) {
+            builder.colored(colour);
+        }
+        return builder.placeNearTarget();
+    }
+
+    /** The wrench, thrown onto the platform from above, as both wrench scenes start. */
+    private static void tossWrench(SceneBuilder scene) {
+        scene.world().createItemEntity(new Vec3(2.5, 3.0, 2.5), new Vec3(0.0, 0.1, 0.0),
+                new ItemStack(CEItems.ENIGMA_WRENCH.get()));
+        scene.idle(10);
+    }
+
+    /**
+     * One offering, placed already spinning.
+     *
+     * <p>{@code Speed} is the only key any of the four reads - the export's NBT step carries nothing
+     * else - and a redraw is required: the gear's model is chosen from the speed it is told about, so
+     * without {@code true} the block appears and then stands still.
+     */
+    private static void offering(SceneBuilder scene, SceneBuildingUtil util, BlockPos pos,
+            BlockState state, float speed) {
+        scene.world().setBlock(pos, state.setValue(RotatedPillarBlock.AXIS, Direction.Axis.Z), true);
+        scene.world().modifyBlockEntityNBT(util.select().position(pos), BlockEntity.class,
+                tag -> tag.putFloat("Speed", speed), true);
+        scene.idle(2);
     }
 
     // ---------------------------------------------------------------------------------------
