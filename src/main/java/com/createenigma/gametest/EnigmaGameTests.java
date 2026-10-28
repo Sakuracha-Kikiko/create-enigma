@@ -45,6 +45,10 @@ import com.simibubi.create.content.kinetics.belt.BeltBlock;
 import com.simibubi.create.content.kinetics.belt.BeltPart;
 import com.simibubi.create.content.kinetics.belt.BeltSlope;
 import com.simibubi.create.content.processing.sequenced.SequencedAssemblyRecipe;
+import com.simibubi.create.content.processing.burner.BlazeBurnerBlock;
+import com.simibubi.create.content.processing.burner.BlazeBurnerBlock.HeatLevel;
+import com.simibubi.create.content.processing.burner.BlazeBurnerBlockEntity;
+import com.createenigma.content.ExtinguishedCakeItem;
 import com.simibubi.create.content.schematics.SchematicItem;
 
 import org.slf4j.Logger;
@@ -1285,6 +1289,80 @@ public class EnigmaGameTests {
                         core.setValue(EnigmaCoreBlock.ASSEMBLED, true)),
                 "the core's own assembled property must be ignored");
 
+        helper.succeed();
+    }
+
+    // --------------------------------------------------------------------------------
+    // 熄灭蛋糕 puts a blaze burner out.
+    //
+    // The two fuel fields are protected, so the only way to set them up here is the same way the
+    // item clears them: through the block entity's own NBT.
+    // --------------------------------------------------------------------------------
+
+    /** A lone blaze burner, well away from where the machine tests build. */
+    private static final BlockPos BURNER = new BlockPos(2, 1, 2);
+
+    private static BlazeBurnerBlockEntity placeBurner(GameTestHelper helper, HeatLevel heat) {
+        helper.setBlock(BURNER,
+                AllBlocks.BLAZE_BURNER.getDefaultState().setValue(BlazeBurnerBlock.HEAT_LEVEL, heat));
+        var be = helper.getBlockEntity(BURNER);
+        helper.assertTrue(be instanceof BlazeBurnerBlockEntity,
+                "no blaze burner at " + BURNER + ", got " + be);
+        return (BlazeBurnerBlockEntity) be;
+    }
+
+    private static void putFuel(ServerLevel level, BlazeBurnerBlockEntity burner,
+            BlazeBurnerBlockEntity.FuelType type, int burnTime, boolean creative) {
+        net.minecraft.nbt.CompoundTag data = burner.saveWithoutMetadata(level.registryAccess());
+        data.putInt("fuelLevel", type.ordinal());
+        data.putInt("burnTimeRemaining", burnTime);
+        if (creative)
+            data.putBoolean("isCreative", true);
+        burner.loadWithComponents(data, level.registryAccess());
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 200)
+    public static void extinguishedCakePutsOutAKindledBurner(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlazeBurnerBlockEntity burner = placeBurner(helper, HeatLevel.KINDLED);
+        putFuel(level, burner, BlazeBurnerBlockEntity.FuelType.NORMAL, 5000, false);
+
+        helper.assertTrue(burner.getHeatLevelFromBlock() == HeatLevel.KINDLED,
+                "the burner starts at " + burner.getHeatLevelFromBlock() + " instead of KINDLED");
+        helper.assertTrue(ExtinguishedCakeItem.extinguish(level, helper.absolutePos(BURNER), burner),
+                "the extinguished cake refused a burner that was heating");
+
+        helper.assertTrue(burner.getHeatLevelFromBlock() == HeatLevel.SMOULDERING,
+                "the burner is " + burner.getHeatLevelFromBlock() + " instead of SMOULDERING");
+        helper.assertTrue(burner.getActiveFuel() == BlazeBurnerBlockEntity.FuelType.NONE,
+                "it still holds " + burner.getActiveFuel() + " fuel");
+        helper.assertTrue(burner.getRemainingBurnTime() == 0,
+                "it still has " + burner.getRemainingBurnTime() + " burn time left");
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 200)
+    public static void extinguishedCakeRefusesACreativeBurner(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlazeBurnerBlockEntity burner = placeBurner(helper, HeatLevel.SEETHING);
+        putFuel(level, burner, BlazeBurnerBlockEntity.FuelType.SPECIAL, 5000, true);
+
+        helper.assertTrue(!ExtinguishedCakeItem.extinguish(level, helper.absolutePos(BURNER), burner),
+                "the extinguished cake put out a creative burner");
+        helper.assertTrue(burner.getHeatLevelFromBlock() == HeatLevel.SEETHING,
+                "the creative burner is now " + burner.getHeatLevelFromBlock());
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 200)
+    public static void extinguishedCakeIgnoresAnIdleBurner(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlazeBurnerBlockEntity burner = placeBurner(helper, HeatLevel.SMOULDERING);
+
+        helper.assertTrue(!ExtinguishedCakeItem.extinguish(level, helper.absolutePos(BURNER), burner),
+                "the extinguished cake acted on a burner that was not burning");
+        helper.assertTrue(burner.getHeatLevelFromBlock() == HeatLevel.SMOULDERING,
+                "the idle burner is now " + burner.getHeatLevelFromBlock());
         helper.succeed();
     }
 

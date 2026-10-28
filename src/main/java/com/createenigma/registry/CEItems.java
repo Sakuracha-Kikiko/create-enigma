@@ -2,6 +2,7 @@ package com.createenigma.registry;
 
 import com.createenigma.CreateEnigma;
 import com.createenigma.content.EnigmaWrenchItem;
+import com.createenigma.content.ExtinguishedCakeItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
 
 import net.minecraft.world.item.Item;
@@ -44,13 +45,13 @@ public class CEItems {
      * two sit next to each other in JEI and differ by one ingredient.
      *
      * <p>It is not food. A blaze cake is fuel rather than a meal, and this one has had the fire put
-     * out - what it does instead is not decided yet, so for now it does nothing.
+     * out - which is what it does: used on a burner that is heating, it puts that burner out.
      *
      * <p>Its texture is Create's blaze cake, referenced by name: a placeholder until something of its
      * own is drawn.
      */
-    public static final ItemEntry<Item> EXTINGUISHED_CAKE =
-            CreateEnigma.registrate().item("extinguished_cake", Item::new).register();
+    public static final ItemEntry<ExtinguishedCakeItem> EXTINGUISHED_CAKE =
+            CreateEnigma.registrate().item("extinguished_cake", ExtinguishedCakeItem::new).register();
 
     public static void register() {
         // Class loading performs the registration.
