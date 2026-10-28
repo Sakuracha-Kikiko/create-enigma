@@ -15,6 +15,7 @@ import java.util.TreeSet;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.createenigma.CreateEnigma;
+import com.createenigma.content.BlueprintBlessing;
 import com.createenigma.content.CreativeHandCrankBlockEntity;
 import com.createenigma.content.EnigmaAdvancements;
 import com.createenigma.content.EnigmaCodeState;
@@ -87,9 +88,11 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.block.state.properties.SlabType;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import net.neoforged.neoforge.fluids.FluidStack;
@@ -1489,6 +1492,52 @@ public class EnigmaGameTests {
                         && possible.effect().getDuration() == 200);
         helper.assertTrue(fireResistance,
                 "it grants no ten seconds of fire resistance: " + food.effects());
+        helper.succeed();
+    }
+
+    // --------------------------------------------------------------------------------
+    // The blueprint writes itself.
+    //
+    // The rule is small - a wrench, an empty blueprint, one page per click - so what is worth
+    // pinning down is the part a later edit could break silently: the page has to be the *same*
+    // stack the creative tab hands out, and the pile left on the ground has to stay a pile.
+    // --------------------------------------------------------------------------------
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void theWrenchWritesABlankBlueprint(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos at = new BlockPos(6, 2, 6);
+
+        ItemEntity blanks = new ItemEntity(level, at.getX() + 0.5, at.getY() + 0.5, at.getZ() + 0.5,
+                new ItemStack(AllItems.EMPTY_SCHEMATIC.get(), 2));
+        blanks.setPickUpDelay(10);
+        level.addFreshEntity(blanks);
+
+        helper.assertTrue(BlueprintBlessing.bless(blanks),
+                "the wrench wrote nothing on a blank blueprint");
+
+        helper.assertTrue(blanks.getItem().is(AllItems.EMPTY_SCHEMATIC.get()) && blanks.getItem().getCount() == 1,
+                "the pile should have lost one sheet and kept the rest: " + blanks.getItem());
+
+        List<ItemEntity> pages = level.getEntitiesOfClass(ItemEntity.class,
+                new AABB(at.getX(), at.getY(), at.getZ(), at.getX() + 1, at.getY() + 1, at.getZ() + 1)
+                        .inflate(2.0),
+                dropped -> dropped.getItem().is(AllItems.SCHEMATIC.get()));
+        helper.assertTrue(pages.size() == 1,
+                "expected exactly one written page on the ground, found " + pages.size());
+
+        ItemStack page = pages.get(0).getItem();
+        helper.assertTrue(EnigmaSchematic.RELATIVE_PATH.equals(page.get(AllDataComponents.SCHEMATIC_FILE)),
+                "the page points at the wrong structure: " + page.get(AllDataComponents.SCHEMATIC_FILE));
+        helper.assertTrue(page.get(AllDataComponents.SCHEMATIC_BOUNDS) instanceof Vec3i,
+                "the page has no bounds, which is what crashed the client last time");
+
+        ItemEntity dirt = new ItemEntity(level, at.getX() + 0.5, at.getY() + 0.5, at.getZ() + 0.5,
+                new ItemStack(net.minecraft.world.item.Items.DIRT, 1));
+        level.addFreshEntity(dirt);
+        helper.assertTrue(!BlueprintBlessing.bless(dirt),
+                "the wrench wrote on a block of dirt");
+
         helper.succeed();
     }
 
