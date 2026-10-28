@@ -29,10 +29,14 @@ import java.util.List;
 /**
  * 熄灭蛋糕 / Extinguished Cake: used on a lit blaze burner, it puts the burner out.
  *
- * <p>A burner that is heating is in {@code KINDLED} or {@code SEETHING}; this turns one of those
- * into {@code SMOULDERING}, which is a burner whose blaze is present but idle. It refuses a
- * creative burner, because that one never burns fuel in the first place and putting it out would
- * only break whatever it is driving.
+ * <p>A burner that is heating shows {@code KINDLED} or {@code SEETHING}, and also {@code FADING} for
+ * the last stretch of its fuel: {@code getHeatLevel} reports {@code FADING} once the remaining burn
+ * time drops below 1.25% of the 10000-tick capacity, which is 125 ticks. All three are lit, so all
+ * three can be put out; asking for {@code KINDLED} alone would make the cake silently refuse a
+ * burner that was nearly empty, which is exactly when a player reaches for it. This turns one of
+ * them into {@code SMOULDERING}, a burner whose blaze is present but idle. It refuses a creative
+ * burner, because that one never burns fuel in the first place and putting it out would only break
+ * whatever it is driving.
  *
  * <p>Changing the block state alone does not stick: {@code BlazeBurnerBlockEntity.tick} derives the
  * state from its fuel every tick ({@code if (activeFuel == FuelType.NORMAL) updateBlockState();}),
@@ -52,6 +56,10 @@ public class ExtinguishedCakeItem extends Item {
 
     private static final String TOOLTIP_STORY = "item.create_enigma.extinguished_cake.tooltip.story";
     private static final String TOOLTIP_HINT = "item.create_enigma.extinguished_cake.tooltip.hint";
+
+    /** Shown while shift is not held, so the two lines above are discoverable at all. */
+    public static final String TOOLTIP_HOLD_SHIFT =
+            "item.create_enigma.extinguished_cake.tooltip.hold_shift";
 
     /**
      * Eaten, it restores 5 hunger and 12 saturation (nutrition 5, saturation modifier 1.2, and the
@@ -77,7 +85,7 @@ public class ExtinguishedCakeItem extends Item {
         BlockPos pos = context.getClickedPos();
         if (!(level.getBlockEntity(pos) instanceof BlazeBurnerBlockEntity burner))
             return InteractionResult.PASS;
-        if (burner.isCreative() || !burner.getHeatLevelFromBlock().isAtLeast(HeatLevel.KINDLED))
+        if (burner.isCreative() || !burner.getHeatLevelFromBlock().isAtLeast(HeatLevel.FADING))
             return InteractionResult.PASS;
 
         if (!level.isClientSide) {
@@ -92,8 +100,13 @@ public class ExtinguishedCakeItem extends Item {
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip,
             TooltipFlag flag) {
-        if (!shiftDown())
+        if (!shiftDown()) {
+            tooltip.add(Component.translatable(TOOLTIP_HOLD_SHIFT,
+                    Component.literal("[Shift]")
+                            .withStyle(ChatFormatting.YELLOW))
+                    .withStyle(ChatFormatting.DARK_GRAY));
             return;
+        }
         tooltip.add(Component.translatable(TOOLTIP_STORY).withStyle(ChatFormatting.GOLD));
         tooltip.add(Component.translatable(TOOLTIP_HINT).withStyle(ChatFormatting.GRAY));
     }
@@ -110,7 +123,7 @@ public class ExtinguishedCakeItem extends Item {
      * <p>Separate from {@link #useOn} so a test can drive it without a player holding the cake.
      */
     public static boolean extinguish(Level level, BlockPos pos, BlazeBurnerBlockEntity burner) {
-        if (burner.isCreative() || !burner.getHeatLevelFromBlock().isAtLeast(HeatLevel.KINDLED))
+        if (burner.isCreative() || !burner.getHeatLevelFromBlock().isAtLeast(HeatLevel.FADING))
             return false;
         if (level.isClientSide)
             return false;

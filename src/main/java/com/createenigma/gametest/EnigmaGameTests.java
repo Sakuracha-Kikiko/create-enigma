@@ -1366,6 +1366,44 @@ public class EnigmaGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = TEMPLATE, timeoutTicks = 200)
+    public static void extinguishedCakePutsOutALowBurner(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlazeBurnerBlockEntity burner = placeBurner(helper, HeatLevel.KINDLED);
+
+        // Below 1.25% of 10000 ticks, which is 125, a lit burner reports FADING rather than KINDLED.
+        // It is still burning, so the cake has to accept it: this is the state a player most wants
+        // to put a burner out in.
+        putFuel(level, burner, BlazeBurnerBlockEntity.FuelType.NORMAL, 50, false);
+        burner.updateBlockState();
+        helper.assertTrue(burner.getHeatLevelFromBlock() == HeatLevel.FADING,
+                "a burner with 50 ticks left is " + burner.getHeatLevelFromBlock() + ", not FADING");
+
+        helper.assertTrue(ExtinguishedCakeItem.extinguish(level, helper.absolutePos(BURNER), burner),
+                "the extinguished cake refused a burner that was fading out");
+        helper.assertTrue(burner.getHeatLevelFromBlock() == HeatLevel.SMOULDERING,
+                "the fading burner is " + burner.getHeatLevelFromBlock() + " instead of SMOULDERING");
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void extinguishedCakeAdvertisesItsSummary(GameTestHelper helper) {
+        ItemStack cake = new ItemStack(CEItems.EXTINGUISHED_CAKE.get());
+
+        // A dedicated server has no shift key, so this is the branch a player sees at rest: the name
+        // and the one line telling them there is more behind shift.
+        List<net.minecraft.network.chat.Component> lines = cake.getTooltipLines(
+                net.minecraft.world.item.Item.TooltipContext.EMPTY, null,
+                net.minecraft.world.item.TooltipFlag.Default.NORMAL);
+        helper.assertTrue(lines.size() == 2,
+                "expected the item name and the summary hint, got " + lines.size() + " lines");
+        boolean hint = lines.get(1).getContents()
+                instanceof net.minecraft.network.chat.contents.TranslatableContents contents
+                && contents.getKey().equals(ExtinguishedCakeItem.TOOLTIP_HOLD_SHIFT);
+        helper.assertTrue(hint, "the second line is not the summary hint: " + lines.get(1));
+        helper.succeed();
+    }
+
     @GameTest(template = TEMPLATE, timeoutTicks = 100)
     public static void extinguishedCakeIsFood(GameTestHelper helper) {
         ItemStack cake = new ItemStack(CEItems.EXTINGUISHED_CAKE.get());
