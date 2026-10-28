@@ -4,7 +4,6 @@ import com.simibubi.create.content.processing.burner.BlazeBurnerBlock;
 import com.simibubi.create.content.processing.burner.BlazeBurnerBlock.HeatLevel;
 import com.simibubi.create.content.processing.burner.BlazeBurnerBlockEntity;
 
-import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
@@ -22,7 +21,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
-import net.neoforged.fml.loading.FMLEnvironment;
 
 import java.util.List;
 
@@ -56,10 +54,6 @@ public class ExtinguishedCakeItem extends Item {
 
     private static final String TOOLTIP_STORY = "item.create_enigma.extinguished_cake.tooltip.story";
     private static final String TOOLTIP_HINT = "item.create_enigma.extinguished_cake.tooltip.hint";
-
-    /** Shown while shift is not held, so the two lines above are discoverable at all. */
-    public static final String TOOLTIP_HOLD_SHIFT =
-            "item.create_enigma.extinguished_cake.tooltip.hold_shift";
 
     /**
      * Eaten, it restores 5 hunger and 12 saturation (nutrition 5, saturation modifier 1.2, and the
@@ -100,21 +94,17 @@ public class ExtinguishedCakeItem extends Item {
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip,
             TooltipFlag flag) {
-        if (!shiftDown()) {
-            tooltip.add(Component.translatable(TOOLTIP_HOLD_SHIFT,
-                    Component.literal("[Shift]")
-                            .withStyle(ChatFormatting.YELLOW))
-                    .withStyle(ChatFormatting.DARK_GRAY));
+        // The hint is on screen in every state, as Create's ItemDescription.Builder builds it: what
+        // changes with Shift is the key's colour, not whether the line is there.
+        tooltip.add(com.createenigma.client.SummaryTooltips.holdShift());
+        if (!com.createenigma.client.SummaryTooltips.shiftHeld())
             return;
-        }
-        tooltip.add(Component.translatable(TOOLTIP_STORY).withStyle(ChatFormatting.GOLD));
-        tooltip.add(Component.translatable(TOOLTIP_HINT).withStyle(ChatFormatting.GRAY));
-    }
 
-    /** Shift, asked of the client only: an item is never hovered on a dedicated server. */
-    private static boolean shiftDown() {
-        return FMLEnvironment.dist.isClient()
-                && net.minecraft.client.gui.screens.Screen.hasShiftDown();
+        tooltip.add(Component.empty());
+        tooltip.add(com.createenigma.client.SummaryTooltips.summary(
+                Component.translatable(TOOLTIP_STORY)));
+        tooltip.add(com.createenigma.client.SummaryTooltips.summary(
+                Component.translatable(TOOLTIP_HINT)));
     }
 
     /**

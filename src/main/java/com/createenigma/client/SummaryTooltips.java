@@ -3,6 +3,7 @@ package com.createenigma.client;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 
 /**
  * Shared Shift state and key hint for this mod's item summaries.
@@ -55,6 +56,28 @@ public final class SummaryTooltips {
      * flag maintained by events would not.
      */
     public static boolean shiftHeld() {
-        return Screen.hasShiftDown();
+        // Guarded so the class can be referenced from a dedicated server: Screen is a client class,
+        // and only the branch that runs on a client ever resolves it.
+        return net.neoforged.fml.loading.FMLEnvironment.dist.isClient() && Screen.hasShiftDown();
+    }
+
+    /**
+     * One line of summary body, in Create's own colours: plain gray, with words wrapped in
+     * underscores picked out in white.
+     *
+     * <p>{@code TooltipHelper.cutTextComponent} applies exactly this rule, after wrapping the text to
+     * a fixed pixel width. The wrapping is left to the game here, which already wraps tooltips at the
+     * window edge, so only the colouring is reproduced.
+     */
+    public static Component summary(Component text) {
+        MutableComponent line = Component.empty();
+        String[] parts = text.getString().split("_", -1);
+        for (int i = 0; i < parts.length; i++) {
+            if (parts[i].isEmpty())
+                continue;
+            line.append(Component.literal(parts[i])
+                    .withStyle(i % 2 == 0 ? ChatFormatting.GRAY : ChatFormatting.WHITE));
+        }
+        return line;
     }
 }

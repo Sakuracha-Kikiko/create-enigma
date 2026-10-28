@@ -47,8 +47,8 @@ public final class DisguisedMotorTooltip {
         // Shift but the hint itself - announcing more would half-spoil the disguise this block
         // exists to keep.
         event.getToolTip().add(Component.empty());
-        event.getToolTip().add(Component.translatable("create_enigma.disguised_motor.summary")
-                .withStyle(ChatFormatting.GOLD));
+        event.getToolTip().add(SummaryTooltips.summary(
+                Component.translatable("create_enigma.disguised_motor.summary")));
         event.getToolTip().add(Component.translatable("create_enigma.disguised_motor.aside")
                 .withStyle(ChatFormatting.DARK_GRAY));
     }

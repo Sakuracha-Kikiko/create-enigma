@@ -1391,7 +1391,7 @@ public class EnigmaGameTests {
         ItemStack cake = new ItemStack(CEItems.EXTINGUISHED_CAKE.get());
 
         // A dedicated server has no shift key, so this is the branch a player sees at rest: the name
-        // and the one line telling them there is more behind shift.
+        // and Create's own "Hold [Shift] for Summary" line, which has to be there in every state.
         List<net.minecraft.network.chat.Component> lines = cake.getTooltipLines(
                 net.minecraft.world.item.Item.TooltipContext.EMPTY, null,
                 net.minecraft.world.item.TooltipFlag.Default.NORMAL);
@@ -1399,8 +1399,8 @@ public class EnigmaGameTests {
                 "expected the item name and the summary hint, got " + lines.size() + " lines");
         boolean hint = lines.get(1).getContents()
                 instanceof net.minecraft.network.chat.contents.TranslatableContents contents
-                && contents.getKey().equals(ExtinguishedCakeItem.TOOLTIP_HOLD_SHIFT);
-        helper.assertTrue(hint, "the second line is not the summary hint: " + lines.get(1));
+                && contents.getKey().equals("create.tooltip.holdForDescription");
+        helper.assertTrue(hint, "the second line is not Create's summary hint: " + lines.get(1));
         helper.succeed();
     }
 

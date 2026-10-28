@@ -78,9 +78,9 @@ public final class EnigmaBlueprintTooltip {
         // One blank line directly under the hint, separating "how to read this" from the text
         // itself. Added only when something follows, so the collapsed tooltip does not end in a gap.
         tooltip.add(Component.empty());
-        tooltip.add(Component.translatable("create_enigma.blueprint.summary")
-                .withStyle(ChatFormatting.GOLD));
-        tooltip.add(Component.translatable("create_enigma.blueprint.detail")
-                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(SummaryTooltips.summary(
+                Component.translatable("create_enigma.blueprint.summary")));
+        tooltip.add(SummaryTooltips.summary(
+                Component.translatable("create_enigma.blueprint.detail")));
     }
 }
