@@ -7,10 +7,8 @@ import com.createenigma.structure.EnigmaValidator;
 import javax.annotation.Nullable;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -149,35 +147,6 @@ public class EnigmaCoreBlockEntity extends BlockEntity {
         for (ServerPlayer player : serverLevel.getEntitiesOfClass(ServerPlayer.class,
                 new AABB(worldPosition).inflate(16.0D))) {
             EnigmaAdvancements.grantMysticAge(player);
-        }
-    }
-
-    /** Tells the player what the machine currently looks like, and where it first disagrees. */
-    public void report(Player player) {
-        EnigmaValidator.Result result = check();
-
-        if (result == null) {
-            player.displayClientMessage(Component.translatable("create_enigma.enigma_core.no_template"), false);
-            return;
-        }
-
-        switch (result.status()) {
-            case FORMED -> {
-                player.displayClientMessage(
-                        Component.translatable("create_enigma.enigma_core.formed"), false);
-                if (layer != null) {
-                    player.displayClientMessage(
-                            Component.translatable("create_enigma.enigma_core.layer."
-                                    + layer.name().toLowerCase(java.util.Locale.ROOT)), false);
-                }
-            }
-            case UNKNOWN -> player.displayClientMessage(
-                    Component.translatable("create_enigma.enigma_core.unknown"), false);
-            case UNFORMED -> {
-                BlockPos pos = result.failingPos();
-                player.displayClientMessage(Component.translatable("create_enigma.enigma_core.unformed",
-                        pos.getX(), pos.getY(), pos.getZ(), result.detail()), false);
-            }
         }
     }
 }

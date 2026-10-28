@@ -11,7 +11,7 @@
       "entries": [
         {
           "type": "minecraft:item",
-          "name": "create_enigma:enigma_core"
+          "name": "minecraft:chest"
         }
       ],
       "rolls": 1.0

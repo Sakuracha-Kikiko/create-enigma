@@ -942,6 +942,23 @@ public class EnigmaGameTests {
         return first.equals(second);
     }
 
+    /**
+     * Reads a json file from the jar's classpath, for the same reason {@link #langKeys} does: the
+     * data is in the jar, and going through the server's resource manager would differ between the
+     * two sides.
+     */
+    private static JsonObject readJson(String path) {
+        try (InputStream in = EnigmaGameTests.class.getResourceAsStream(path)) {
+            if (in == null) {
+                throw new AssertionError("missing " + path + " on the classpath");
+            }
+            return JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8))
+                    .getAsJsonObject();
+        } catch (IOException e) {
+            throw new RuntimeException("could not read " + path, e);
+        }
+    }
+
     private static Set<String> langKeys(GameTestHelper helper, String locale) {
         // Read from the classpath, not from the server's resource manager: lang files live under
         // assets/, and a server only mounts data packs - getResource would find nothing there. The
@@ -1304,6 +1321,39 @@ public class EnigmaGameTests {
         helper.assertTrue(BlockStateMatcher.matches(core,
                         core.setValue(EnigmaCoreBlock.ASSEMBLED, true)),
                 "the core's own assembled property must be ignored");
+
+        helper.succeed();
+    }
+
+    /**
+     * The core is a shell, not an item: no survival path may put one in a bag.
+     *
+     * <p>Three things have to agree for that, and two of them are data that a careless edit could
+     * undo without any test failing: the block's own numbers (soft, and no tool requirement, so
+     * there is no "right tool" to bring), and the loot table (a chest, not the core). The third -
+     * the wrench dismantling it back into a chest - is code in {@link EnigmaCoreBlock} that needs a
+     * player, so it is checked in game rather than here.
+     */
+    @GameTest(template = TEMPLATE)
+    public static void theCoreIsNotAnItemYouCanKeep(GameTestHelper helper) {
+        BlockPos pos = new BlockPos(1, 1, 1);
+        helper.setBlock(pos, CEBlocks.ENIGMA_CORE.get().defaultBlockState());
+        BlockState core = helper.getBlockState(pos);
+
+        float hardness = core.getDestroySpeed(helper.getLevel(), helper.absolutePos(pos));
+        helper.assertTrue(hardness == 3.0F, "the core's hardness is " + hardness + " instead of 3");
+        helper.assertTrue(core.getBlock().getExplosionResistance() == 9.0F,
+                "the core's blast resistance is " + core.getBlock().getExplosionResistance()
+                        + " instead of 9");
+        helper.assertFalse(core.requiresCorrectToolForDrops(),
+                "the core asks for a specific tool, so a player without it would get nothing back");
+
+        JsonObject loot = readJson("/data/create_enigma/loot_table/blocks/enigma_core.json");
+        String drops = loot.getAsJsonArray("pools").get(0).getAsJsonObject()
+                .getAsJsonArray("entries").get(0).getAsJsonObject()
+                .get("name").getAsString();
+        helper.assertTrue("minecraft:chest".equals(drops),
+                "the core's loot table drops " + drops + " instead of a chest");
 
         helper.succeed();
     }

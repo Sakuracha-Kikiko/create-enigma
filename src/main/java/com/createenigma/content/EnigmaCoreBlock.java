@@ -3,15 +3,18 @@ package com.createenigma.content;
 import javax.annotation.Nullable;
 
 import com.createenigma.registry.CEBlockEntities;
+import com.createenigma.registry.CEItems;
+import com.simibubi.create.AllSoundEvents;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
@@ -93,35 +96,46 @@ public class EnigmaCoreBlock extends Block implements EntityBlock {
         }
     }
 
+    /**
+     * The core answers exactly one interaction: a wrench, held while sneaking, takes it apart.
+     *
+     * <p>Same gesture and same sound as Create's wrench removing a kinetic component, because that
+     * is the gesture players already know. What comes back is a chest, which is what this position
+     * held before the machine was assembled - never the core itself. That is the whole point: the
+     * core is not a survival item, so there is no path in the game that puts one in a bag.
+     *
+     * <p>Everything else passes through untouched: without a wrench, or without sneaking, right
+     * click does nothing at all. The core stopped reporting the machine's state when this was added
+     * - that readout belongs to the chest, which is the block the player places and can always get
+     * back.
+     */
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level,
                                               BlockPos pos, Player player, InteractionHand hand,
                                               BlockHitResult hitResult) {
-        // Sneaking is left to vanilla so a player can still place blocks against the core.
-        if (player.isShiftKeyDown()) {
+        if (!player.isShiftKeyDown() || !stack.is(CEItems.ENIGMA_WRENCH.get())) {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
-        return report(level, pos, player)
-                ? ItemInteractionResult.SUCCESS
-                : ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
-    }
-
-    @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
-                                               Player player, BlockHitResult hitResult) {
-        return report(level, pos, player) ? InteractionResult.SUCCESS : InteractionResult.PASS;
-    }
-
-    private static boolean report(Level level, BlockPos pos, Player player) {
         if (level.isClientSide) {
-            // The server owns the answer and sends the message; the client only swings its arm.
-            return true;
+            // The server removes the block and hands back the chest; the client only swings.
+            return ItemInteractionResult.SUCCESS;
         }
-        if (level.getBlockEntity(pos) instanceof EnigmaCoreBlockEntity core) {
-            core.report(player);
-            return true;
-        }
-        return false;
+        dismantle(level, pos, player);
+        return ItemInteractionResult.SUCCESS;
+    }
+
+    /**
+     * Removes the core and puts a chest in the player's inventory.
+     *
+     * <p>The block is cleared with {@code setBlock} rather than broken with drops on purpose: the
+     * loot table already says a chest, and letting the block drop its own loot here as well would
+     * hand out two. Clearing it directly also keeps the removal silent to neighbours other than
+     * the one block update, which is all the machine needs to notice it is gone.
+     */
+    private static void dismantle(Level level, BlockPos pos, Player player) {
+        level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+        player.getInventory().placeItemBackInInventory(new ItemStack(Items.CHEST));
+        AllSoundEvents.WRENCH_REMOVE.playOnServer(level, pos);
     }
 
     private static void requestCheck(Level level, BlockPos pos) {

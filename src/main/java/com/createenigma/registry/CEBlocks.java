@@ -1,7 +1,6 @@
 package com.createenigma.registry;
 
 import static com.simibubi.create.foundation.data.ModelGen.customItemModel;
-import static com.simibubi.create.foundation.data.TagGen.axeOrPickaxe;
 import static com.simibubi.create.foundation.data.TagGen.pickaxeOnly;
 
 import com.createenigma.CreateEnigma;
@@ -39,16 +38,25 @@ public class CEBlocks {
      *
      * <p>Replaces the chest of the original machine. {@code assembled} drives both the model and
      * the light level, so the core visibly changes when the machine is complete.
+     *
+     * <p><b>It is not a survival item.</b> The core cannot be obtained as itself: broken, it drops
+     * a chest, and the wrench dismantles it back into a chest. The block exists in the registry
+     * because blueprints and this mod's own anchor state need it, so it is a creative-only block in
+     * effect - which is also why it needs no tool tier of its own to be mined.
+     *
+     * <p>Its numbers are the owner's, not borrowed from a stone: hardness 3 and blast resistance 9
+     * put it roughly at a chest's toughness, and {@code requiresCorrectToolForDrops} is left off on
+     * purpose so that any hand or tool takes it. A block that only ever gives a chest back has no
+     * reason to make the player carry a pickaxe.
      */
     @SuppressWarnings("removal")
     public static final BlockEntry<EnigmaCoreBlock> ENIGMA_CORE =
             CreateEnigma.registrate().block("enigma_core", EnigmaCoreBlock::new)
-                    .initialProperties(SharedProperties::stone)
-                    .properties(p -> p.noOcclusion()
-                            .mapColor(MapColor.COLOR_PURPLE)
+                    .properties(p -> p.mapColor(MapColor.COLOR_PURPLE)
+                            .strength(3.0F, 9.0F)
+                            .noOcclusion()
                             .lightLevel(state -> state.getValue(EnigmaCoreBlock.ASSEMBLED) ? 10 : 0))
                     .addLayer(() -> RenderType::cutoutMipped)
-                    .transform(axeOrPickaxe())
                     .item()
                     .transform(customItemModel())
                     .register();
