@@ -24,15 +24,16 @@ import net.minecraft.world.item.ItemStack;
  * apart cannot disagree with each other:
  *
  * <ul>
- *   <li>nothing at all - no offering has been made;</li>
- *   <li>anything else, or only part of the set - the offering is spoiled, whether or not the
- *       missing pieces are "almost there";</li>
+ *   <li>nothing at all, <b>or only part of the set</b> - no offering has been made;</li>
+ *   <li>anything else in the chest, alongside the offering or not - the offering is spoiled;</li>
  *   <li>all three kinds, in any quantity - the offering is accepted and the chest is emptied.</li>
  * </ul>
  *
- * <p>A partial set is deliberately {@link Verdict#IMPURE} and not {@link Verdict#EMPTY}. A player who
- * has put in two of the three deserves to be told the offering is wrong, not that they have offered
- * nothing.
+ * <p>A partial set is deliberately {@link Verdict#EMPTY} rather than {@link Verdict#IMPURE}, on the
+ * owner's reading of the line the wrench says: "sincerity" has to be <em>enough</em>, and one or two
+ * of three is not enough. It is an unfinished offering, not a wrong one, and the machine stays
+ * silent about it rather than complaining. Only something that does not belong there at all makes
+ * the offering wrong.
  *
  * <h2>Why a container and not a chest</h2>
  *
@@ -78,7 +79,6 @@ public final class EnigmaOfferings {
 
     public static Verdict judge(Container container) {
         Set<Kind> present = EnumSet.noneOf(Kind.class);
-        boolean anything = false;
         boolean foreign = false;
 
         for (int slot = 0; slot < container.getContainerSize(); slot++) {
@@ -86,7 +86,6 @@ public final class EnigmaOfferings {
             if (stack.isEmpty()) {
                 continue;
             }
-            anything = true;
 
             Kind kind = kindOf(stack);
             if (kind == null) {
@@ -96,11 +95,11 @@ public final class EnigmaOfferings {
             }
         }
 
-        if (!anything) {
-            return Verdict.EMPTY;
-        }
-        if (foreign || present.size() < Kind.values().length) {
+        if (foreign) {
             return Verdict.IMPURE;
+        }
+        if (present.size() < Kind.values().length) {
+            return Verdict.EMPTY;
         }
         return Verdict.ACCEPTABLE;
     }

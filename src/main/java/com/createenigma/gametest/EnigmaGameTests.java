@@ -825,7 +825,8 @@ public class EnigmaGameTests {
      *   <li>a chest with dirt and no offering is not "empty" - it is spoiled, and saying "you have
      *       not shown enough sincerity" to a player who filled it with junk would be a lie;</li>
      *   <li>two of the three is <b>not</b> acceptable either, even though it is nearly right - the
-     *       machine asks for the set;</li>
+     *       machine asks for the set, and a partial set is read as no offering at all rather than as
+     *       a wrong one;</li>
      *   <li>an offering <b>plus</b> dirt is spoiled; one item cannot be slipped past the rule by
      *       stacking it next to the right things;</li>
      *   <li>extras of the right things are fine and all of them are taken, because the rule accepts
@@ -856,8 +857,9 @@ public class EnigmaGameTests {
         SimpleContainer partial = new SimpleContainer(27);
         partial.setItem(0, flywheel.copy());
         partial.setItem(1, cake.copy());
-        helper.assertTrue(EnigmaOfferings.judge(partial) == EnigmaOfferings.Verdict.IMPURE,
-                "two of the three offerings read as " + EnigmaOfferings.judge(partial));
+        helper.assertTrue(EnigmaOfferings.judge(partial) == EnigmaOfferings.Verdict.EMPTY,
+                "two of the three offerings read as " + EnigmaOfferings.judge(partial)
+                        + " - an unfinished offering is not a spoiled one");
 
         SimpleContainer complete = new SimpleContainer(27);
         complete.setItem(0, flywheel.copy());
