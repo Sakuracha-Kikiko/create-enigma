@@ -4,6 +4,7 @@ import com.createenigma.CreateEnigma;
 import com.createenigma.registry.CEItems;
 import com.createenigma.structure.EnigmaSchematic;
 import com.simibubi.create.AllItems;
+import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
 
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -15,30 +16,82 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 
 /**
- * 神秘扳手把空白蓝图写成神秘蓝图 - the wrench, right-clicked on a dropped empty blueprint.
+ * 神秘扳手把空白蓝图写成神秘蓝图 - the wrench writes a page of the machine's blueprint.
  *
- * <h2>Why the interaction lives on an item entity</h2>
+ * <h2>Two places it can be done, and why the depot is the one that matters</h2>
  *
- * <p>Nothing in vanilla right-clicks a dropped item: {@code ItemEntity} overrides neither
- * {@code interact} nor {@code interactAt}, so the click falls through to nothing. That makes this
- * slot free, and it is a better home for the gesture than a crafting recipe: the machine is taught
- * by reading, so the blueprint is something the wrench <em>writes</em> rather than something a
- * player assembles.
+ * <p>The ritual is on a depot: a blank blueprint lying out in the open, a wrench held over it, and
+ * the sheet is written in place. That reads, which is the point - the machine is taught by reading,
+ * so its blueprint should be something the wrench <em>writes</em> rather than something a player
+ * assembles from a recipe grid.
  *
- * <p>NeoForge fires {@code PlayerInteractEvent.EntityInteract} before the entity's own
- * {@code interact} runs, on both sides. It is cancelled with {@code SUCCESS} so the client does not
- * also try to walk up and collect the item, and the conversion itself happens only on the server.
+ * <p>The same click also works on a blank blueprint dropped on the ground. It is kept because
+ * nothing in vanilla right-clicks a dropped item - {@code ItemEntity} overrides neither
+ * {@code interact} nor {@code interactAt} - so the slot is free, but aiming at a small entity on the
+ * floor is fiddly, and a depot is what the player will reach for.
  *
- * <h2>One blueprint per click</h2>
+ * <h2>How the click is taken</h2>
  *
- * <p>A stack of them is a stack of blank sheets, not a stack of blueprints: each click writes one
- * page. Anything left over stays on the ground as its own item entity, which is why {@link #bless}
- * has to be given a level - it may need to put something back.
+ * <p>Both paths listen to NeoForge's interaction events, which fire before the block or entity is
+ * asked, and both cancel with {@code SUCCESS} on both sides so the client does not run its own
+ * attempt. Only the server writes the page.
  */
 @EventBusSubscriber(modid = CreateEnigma.MOD_ID)
 public final class BlueprintBlessing {
 
     private BlueprintBlessing() {}
+
+    /**
+     * The ritual: wrench on a depot holding a blank blueprint.
+     *
+     * <p>Right-click-block rather than the depot's own interaction, for the same reason the core is
+     * handled by the wrench: the event fires before the block is asked, so the click cannot be
+     * swallowed by the depot trying to put the wrench down on itself.
+     */
+    @SubscribeEvent
+    public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
+        if (!(event.getLevel().getBlockEntity(event.getPos()) instanceof DepotBlockEntity depot)) {
+            return;
+        }
+        if (!event.getItemStack().is(CEItems.ENIGMA_WRENCH.get())) {
+            return;
+        }
+        if (!depot.getHeldItem().is(AllItems.EMPTY_SCHEMATIC.get())) {
+            return;
+        }
+
+        event.setCanceled(true);
+        event.setCancellationResult(InteractionResult.SUCCESS);
+        if (event.getLevel().isClientSide()) {
+            return;
+        }
+        bless(depot);
+    }
+
+    /**
+     * Writes the whole sheet lying on the depot - the sheet is on display, so the pile on it is the
+     * pile that gets written, count and all.
+     *
+     * <p>{@code notifyUpdate} is what puts the page in front of the player: the held item goes out
+     * in every block entity packet, so one update is enough and the depot's own renderer picks it up.
+     *
+     * @return whether anything was written
+     */
+    public static boolean bless(DepotBlockEntity depot) {
+        ItemStack blanks = depot.getHeldItem();
+        if (!blanks.is(AllItems.EMPTY_SCHEMATIC.get())) {
+            return false;
+        }
+
+        ItemStack written = EnigmaSchematic.blueprintStack();
+        written.setCount(blanks.getCount());
+        depot.setHeldItem(written);
+        depot.notifyUpdate();
+
+        depot.getLevel().playSound(null, depot.getBlockPos(), SoundEvents.UI_CARTOGRAPHY_TABLE_TAKE_RESULT,
+                SoundSource.PLAYERS, 1.0F, 1.0F);
+        return true;
+    }
 
     @SubscribeEvent
     public static void onEntityInteract(PlayerInteractEvent.EntityInteract event) {

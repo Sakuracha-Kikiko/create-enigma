@@ -50,6 +50,7 @@ import com.simibubi.create.content.processing.burner.BlazeBurnerBlock;
 import com.simibubi.create.content.processing.burner.BlazeBurnerBlock.HeatLevel;
 import com.simibubi.create.content.processing.burner.BlazeBurnerBlockEntity;
 import com.createenigma.content.ExtinguishedCakeItem;
+import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
 import com.simibubi.create.content.schematics.SchematicItem;
 
 import org.slf4j.Logger;
@@ -1502,6 +1503,36 @@ public class EnigmaGameTests {
     // pinning down is the part a later edit could break silently: the page has to be the *same*
     // stack the creative tab hands out, and the pile left on the ground has to stay a pile.
     // --------------------------------------------------------------------------------
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void theWrenchWritesABlankBlueprintOnADepot(GameTestHelper helper) {
+        BlockPos at = new BlockPos(10, 2, 10);
+        helper.setBlock(at, AllBlocks.DEPOT.getDefaultState());
+
+        DepotBlockEntity depot = (DepotBlockEntity) helper.getBlockEntity(at);
+        depot.setHeldItem(new ItemStack(AllItems.EMPTY_SCHEMATIC.get(), 3));
+
+        helper.assertTrue(BlueprintBlessing.bless(depot),
+                "the wrench wrote nothing on a blank blueprint lying on a depot");
+
+        ItemStack page = depot.getHeldItem();
+        helper.assertTrue(page.is(AllItems.SCHEMATIC.get()),
+                "the depot still holds " + page);
+        helper.assertTrue(page.getCount() == 3,
+                "the whole sheet should have been written at once, got " + page.getCount() + " of 3");
+        helper.assertTrue(EnigmaSchematic.RELATIVE_PATH.equals(page.get(AllDataComponents.SCHEMATIC_FILE)),
+                "the page points at the wrong structure: " + page.get(AllDataComponents.SCHEMATIC_FILE));
+        helper.assertTrue(page.get(AllDataComponents.SCHEMATIC_BOUNDS) instanceof Vec3i,
+                "the page has no bounds, which is what crashed the client last time");
+
+        // Something that is not a blank blueprint is left alone.
+        depot.setHeldItem(new ItemStack(Items.DIRT, 2));
+        helper.assertTrue(!BlueprintBlessing.bless(depot), "the wrench wrote on a block of dirt");
+        helper.assertTrue(depot.getHeldItem().is(Items.DIRT) && depot.getHeldItem().getCount() == 2,
+                "the dirt was disturbed: " + depot.getHeldItem());
+
+        helper.succeed();
+    }
 
     @GameTest(template = TEMPLATE, timeoutTicks = 100)
     public static void theWrenchWritesABlankBlueprint(GameTestHelper helper) {
