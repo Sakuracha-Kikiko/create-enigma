@@ -8,24 +8,17 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.annotation.Nullable;
-
 import com.createenigma.registry.CEBlocks;
 import com.createenigma.structure.EnigmaStructure.Generation;
 import com.mojang.logging.LogUtils;
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.AllDataComponents;
 import com.simibubi.create.AllItems;
-import com.simibubi.create.content.kinetics.belt.BeltBlock;
-import com.simibubi.create.content.kinetics.belt.BeltPart;
-import com.simibubi.create.content.kinetics.belt.BeltSlope;
-import com.simibubi.create.content.kinetics.simpleRelays.ShaftBlock;
 import com.simibubi.create.foundation.utility.CreatePaths;
 
 import org.slf4j.Logger;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
@@ -126,20 +119,13 @@ public final class EnigmaSchematic {
         for (EnigmaStructure.Entry entry : entries) {
             BlockState state = entry.state();
 
-            if (state.is(AllBlocks.BELT.get())) {
-                // A belt run does not simply vanish. Its two end blocks are the pulleys - the belt
-                // wrapped around a shaft - and what stands there with the belt not fitted is the
-                // shaft. Only the middle blocks leave nothing behind.
-                //
-                // Getting this wrong is not cosmetic: it takes the shaft out along with the belt,
-                // and a run cannot be placed back onto nothing. Reported from play as "you deleted
-                // the shafts on the belts too", and confirmed by comparing against a schematic with
-                // the belts broken in game: 19 belts became 8 shafts and 11 gaps.
-                state = bareShaftUnder(state);
-                if (state == null) {
-                    continue;
-                }
-            } else if (state.is(AllBlocks.CREATIVE_MOTOR.get())
+            // Belts are shipped as they are. We used to strip them - ends became bare shafts and
+            // middles vanished - on the belief that the cannon could not place a belt run. That
+            // belief was never tested and turned out to be wrong: a schematic with belts prints
+            // correctly. What the owner had actually seen was a schematic whose belts carried block
+            // entity data, which is the case that misbehaves. This file writes no block entity data
+            // at all (see the class comment), so ours falls on the side that works.
+            if (state.is(AllBlocks.CREATIVE_MOTOR.get())
                     || state.is(CEBlocks.DISGUISED_MOTOR.get())) {
                 continue;
             }
@@ -176,60 +162,22 @@ public final class EnigmaSchematic {
     }
 
     /**
-     * What is left at a belt position once the belt is not fitted, or null if nothing is.
-     *
-     * <p>A run's end blocks hold the pulley, which is a shaft with belt wrapped round it, so a bare
-     * shaft belongs there. The middle blocks are belt and nothing else, and leave a gap.
-     *
-     * <p>The shaft's axis is perpendicular to the run - a belt travelling north-south is driven by
-     * east-west shafts - and vertical for a run climbing sideways, where the drive comes from below.
-     * These are read off a schematic with the belts broken in game rather than derived from first
-     * principles, which is the only reason this is a short method instead of a guess.
-     */
-    @Nullable
-    private static BlockState bareShaftUnder(BlockState belt) {
-        if (!belt.is(AllBlocks.BELT.get())) {
-            return belt;
-        }
-
-        BeltPart part = belt.getValue(BeltBlock.PART);
-        if (part == BeltPart.MIDDLE) {
-            return null;
-        }
-
-        Direction.Axis axis = belt.getValue(BeltBlock.SLOPE) == BeltSlope.SIDEWAYS
-                ? Direction.Axis.Y
-                : belt.getValue(BeltBlock.HORIZONTAL_FACING).getAxis() == Direction.Axis.Z
-                        ? Direction.Axis.X
-                        : Direction.Axis.Z;
-
-        return AllBlocks.SHAFT.get().defaultBlockState().setValue(ShaftBlock.AXIS, axis);
-    }
-
-    /**
      * Blocks the blueprint deliberately leaves out, for the player to place themselves.
      *
-     * <p>Two kinds, for two different reasons:
+     * <p>Only the motors now. The machine needs six of them in the first generation and a survival
+     * player cannot obtain a real one. A blueprint showing a row of disguised motors would hand over
+     * the entire conceit at once: that they exist, that they go there, and that they stand in for
+     * something else. Left out, the machine gets to say it in its own voice - the wrench reports
+     * that nothing is missing except the motors, and adds that it is not picky any more.
      *
-     * <ul>
-     *   <li><b>Belts.</b> Create's own cannon cannot place belt runs correctly - a known limitation
-     *       of the schematic system, not of this machine. Shipping them would leave a machine full
-     *       of subtly wrong belts, and fixing those by hand is worse than placing them by hand in
-     *       the first place. What stands where they were is {@link #bareShaftUnder}, not nothing.</li>
-     *   <li><b>Motors.</b> The machine needs six of them in the first generation and a survival
-     *       player cannot obtain a real one. A blueprint showing a row of disguised motors would
-     *       hand over the entire conceit at once: that they exist, that they go there, and that
-     *       they stand in for something else. Left out, the machine gets to say it in its own
-     *       voice - the wrench reports that nothing is missing except the motors, and adds that it
-     *       is not picky any more.</li>
-     * </ul>
+     * <p>Still required by {@link EnigmaStructure#entries(Generation)}: the blueprint omits them,
+     * the validator does not. That gap is the player's work.
      *
-     * <p>Both are still required by {@link EnigmaStructure#entries(Generation)}: the blueprint
-     * omits them, the validator does not. That gap is the player's work.
+     * <p>Belts used to be on this list too, for a reason that turned out to be false. See
+     * {@link #build}.
      */
     public static boolean isPlayersOwnWork(BlockState state) {
-        return state.is(AllBlocks.BELT.get())
-                || state.is(AllBlocks.CREATIVE_MOTOR.get())
+        return state.is(AllBlocks.CREATIVE_MOTOR.get())
                 || state.is(CEBlocks.DISGUISED_MOTOR.get());
     }
 

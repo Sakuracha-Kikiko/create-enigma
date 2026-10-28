@@ -284,10 +284,10 @@ public class EnigmaGameTests {
      * then the other, and which end you started from decides both {@code facing} and whether each
      * block is START or END. On a flat run both outcomes are valid belts along the same line.
      *
-     * <p>That mattered more here than it would elsewhere: the belts were deliberately left out of
-     * the blueprint, so a builder has nothing to copy the direction from. Comparing it would be
-     * asking them to guess, and the guess has no wrong answer to learn from - only a machine that
-     * refuses to be finished.
+     * <p>That mattered more here than it would elsewhere: belts are laid by hand after a blueprint
+     * when the player builds without one, and the direction they end up with depends on which shaft
+     * they clicked first. Comparing it would be asking them to guess, and the guess has no wrong
+     * answer to learn from - only a machine that refuses to be finished.
      */
     @GameTest(template = TEMPLATE, timeoutTicks = 300)
     public static void aBeltRunLaidTheOtherWayRoundStillCounts(GameTestHelper helper) {
@@ -427,19 +427,17 @@ public class EnigmaGameTests {
     }
 
     /**
-     * The blueprint must omit the belts and the motors, leave a shaft behind for every belt that had
-     * an end block, and <b>change nothing else</b>.
+     * The blueprint must contain the whole machine except the motors, and <b>change nothing else</b>.
      *
-     * <p>Written because the first version of this feature was reported as taking the shafts out
-     * with the belts. That is the failure mode worth guarding against: a filter on "belt" quietly
-     * catching something a belt depends on leaves a machine that looks almost right and cannot be
-     * finished by hand without guesswork.
-     *
-     * <p>Comparing full type tallies rather than spot-checking a few blocks means any future
-     * over-reach shows up as a named difference, whatever it is.
+     * <p>Belts used to be filtered out here, with a bare shaft left at each belt end in their place.
+     * That was done on the belief that the cannon could not place a belt run - a belief that was
+     * never tested, and that the owner has since disproved in game: a schematic containing belts
+     * prints correctly. The real culprit was belts carrying block entity data, which this blueprint
+     * never writes. So the substitution is gone, and the test now guards the other direction: if a
+     * filter ever comes back, it shows up here as a named difference.
      */
     @GameTest(template = TEMPLATE, timeoutTicks = 300)
-    public static void blueprintOmitsBeltsAndMotorsAndNothingElse(GameTestHelper helper) {
+    public static void blueprintOmitsOnlyTheMotors(GameTestHelper helper) {
         EnigmaStructure structure = EnigmaStructure.get();
         ServerLevel level = helper.getLevel();
         BlockPos anchor = helper.absolutePos(CORE);
@@ -457,15 +455,14 @@ public class EnigmaGameTests {
         String shaftType = BuiltInRegistries.BLOCK.getKey(AllBlocks.SHAFT.get()).toString();
         String beltType = BuiltInRegistries.BLOCK.getKey(AllBlocks.BELT.get()).toString();
 
-        // Every belt block that was an end of a run becomes a shaft; middles leave a gap.
-        int endBelts = 0;
+        // The machine must actually have belts in it, or this test proves nothing about them.
+        int beltsInMachine = 0;
         for (EnigmaStructure.Entry entry : structure.entries(Generation.PRIMAL)) {
-            if (entry.state().is(AllBlocks.BELT.get())
-                    && entry.state().getValue(BeltBlock.PART) != BeltPart.MIDDLE) {
-                endBelts++;
+            if (entry.state().is(AllBlocks.BELT.get())) {
+                beltsInMachine++;
             }
         }
-        helper.assertTrue(endBelts > 0, "the machine has no belt ends; this test proves nothing");
+        helper.assertTrue(beltsInMachine > 0, "the machine has no belts; this test proves nothing");
 
         Set<String> allTypes = new TreeSet<>();
         allTypes.addAll(built.keySet());
@@ -476,12 +473,8 @@ public class EnigmaGameTests {
             int got = built.getOrDefault(type, 0);
             int want = expected.getOrDefault(type, 0);
 
-            // The three types whose counts are supposed to move.
-            if (type.equals(beltType)) {
-                want = 0;
-            } else if (type.equals(shaftType)) {
-                want += endBelts;
-            } else if (type.equals(BuiltInRegistries.BLOCK.getKey(AllBlocks.CREATIVE_MOTOR.get()).toString())
+            // The only types whose counts are supposed to move: the two kinds of motor.
+            if (type.equals(BuiltInRegistries.BLOCK.getKey(AllBlocks.CREATIVE_MOTOR.get()).toString())
                     || type.equals(BuiltInRegistries.BLOCK.getKey(CEBlocks.DISGUISED_MOTOR.get()).toString())) {
                 want = 0;
             }
@@ -495,18 +488,20 @@ public class EnigmaGameTests {
         helper.assertTrue(differences.isEmpty(),
                 "the blueprint does not match the machine minus the player's part:" + differences);
 
-        helper.assertTrue(built.getOrDefault(beltType, 0) == 0,
-                "the blueprint still contains belts");
+        helper.assertTrue(built.getOrDefault(beltType, 0) == beltsInMachine,
+                "the blueprint dropped belts: it has " + built.getOrDefault(beltType, 0) + " of "
+                        + beltsInMachine);
         helper.assertTrue(built.getOrDefault(
                         BuiltInRegistries.BLOCK.getKey(CEBlocks.DISGUISED_MOTOR.get()).toString(), 0) == 0,
                 "the blueprint still contains disguised motors");
 
-        // What a belt sits on survives: every end block left a shaft, and none went missing.
-        helper.assertTrue(built.getOrDefault(shaftType, 0) == endBelts + expected.getOrDefault(shaftType, 0),
-                "shafts did not survive the belts being dropped: blueprint has "
-                        + built.getOrDefault(shaftType, 0) + ", expected "
-                        + (endBelts + expected.getOrDefault(shaftType, 0))
-                        + " (" + endBelts + " belt ends plus the machine's own)");
+        // A belt run is a chain of blocks; dropping the middle of one leaves two stumps that can
+        // never be joined again. That was the old failure, so the count above is the assertion that
+        // matters, and the shaft count is left exactly where the machine put it.
+        helper.assertTrue(built.getOrDefault(shaftType, 0) == expected.getOrDefault(shaftType, 0),
+                "the blueprint invented shafts or lost them: blueprint has "
+                        + built.getOrDefault(shaftType, 0) + ", machine has "
+                        + expected.getOrDefault(shaftType, 0));
 
         // Logged rather than asserted: the exact contents are useful to read back when someone asks
         // "what did the blueprint actually leave me", and a passing test prints nothing otherwise.
@@ -538,18 +533,17 @@ public class EnigmaGameTests {
                 "the blueprint did not put a chest at the anchor; it put "
                         + helper.getBlockState(CORE).getBlock());
 
-        // The shell on its own is not the machine, and - this is the part worth asserting - it must
-        // not read as "only the motors are missing" either. The belts are outstanding too, so the
-        // wrench has to keep asking for more rather than promising that a substitute motor will
-        // finish the job.
+        // The shell plus the belts is not the machine - the motors are missing - and the gap is now
+        // exactly the motors. That reading is what makes the blueprint's promise honest: the wrench
+        // can tell the player that a substitute will finish the job, because it will.
         EnigmaValidator.Report afterBlueprint =
                 EnigmaValidator.analyse(level, anchor, structure, Generation.PRIMAL);
         helper.assertTrue(!afterBlueprint.isComplete(),
-                "the blueprint built the entire machine; the belts and motors were supposed to be "
-                        + "left to the player");
-        helper.assertTrue(!afterBlueprint.onlyMotorsMissing(),
-                "the blueprint alone must not read as \"only motors missing\" - the belts are "
-                        + "outstanding too, and that hint would be a lie here");
+                "the blueprint built the entire machine; the motors were supposed to be left to the "
+                        + "player");
+        helper.assertTrue(afterBlueprint.onlyMotorsMissing(),
+                "after the blueprint the only gap left should be the motors, but the wrench reports "
+                        + afterBlueprint.detail());
 
         // The player's half: everything the blueprint left out, placed as the template records it.
         int placedByHand = 0;
