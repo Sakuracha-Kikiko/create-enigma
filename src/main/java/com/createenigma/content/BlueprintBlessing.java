@@ -4,7 +4,7 @@ import com.createenigma.CreateEnigma;
 import com.createenigma.registry.CEItems;
 import com.createenigma.structure.EnigmaSchematic;
 import com.simibubi.create.AllItems;
-import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
+import com.simibubi.create.content.decoration.placard.PlacardBlockEntity;
 
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -18,17 +18,17 @@ import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 /**
  * 神秘扳手把空白蓝图写成神秘蓝图 - the wrench writes a page of the machine's blueprint.
  *
- * <h2>Two places it can be done, and why the depot is the one that matters</h2>
+ * <h2>Two places it can be done, and why the placard is the one that matters</h2>
  *
- * <p>The ritual is on a depot: a blank blueprint lying out in the open, a wrench held over it, and
- * the sheet is written in place. That reads, which is the point - the machine is taught by reading,
- * so its blueprint should be something the wrench <em>writes</em> rather than something a player
- * assembles from a recipe grid.
+ * <p>The ritual is on a placard: a blank blueprint framed in a wall case, a wrench held to it, and
+ * the sheet is written where it hangs. That reads, which is the point - the machine is taught by
+ * reading, so its blueprint should be something the wrench <em>writes</em> rather than something a
+ * player assembles from a recipe grid.
  *
  * <p>The same click also works on a blank blueprint dropped on the ground. It is kept because
  * nothing in vanilla right-clicks a dropped item - {@code ItemEntity} overrides neither
  * {@code interact} nor {@code interactAt} - so the slot is free, but aiming at a small entity on the
- * floor is fiddly, and a depot is what the player will reach for.
+ * floor is fiddly, and a placard is what the player will reach for.
  *
  * <h2>How the click is taken</h2>
  *
@@ -42,21 +42,26 @@ public final class BlueprintBlessing {
     private BlueprintBlessing() {}
 
     /**
-     * The ritual: wrench on a depot holding a blank blueprint.
+     * The ritual: wrench on a placard holding a blank blueprint.
      *
-     * <p>Right-click-block rather than the depot's own interaction, for the same reason the core is
-     * handled by the wrench: the event fires before the block is asked, so the click cannot be
-     * swallowed by the depot trying to put the wrench down on itself.
+     * <p>A placard is a wall case for one item, which is exactly the right amount of ceremony: the
+     * sheet is framed and on display, so writing it reads as something that happened <em>to</em> the
+     * sheet rather than a crafting step.
+     *
+     * <p>Right-click-block rather than the placard's own interaction, because the placard answers
+     * right clicks itself: with a wrench in hand it would try to hold the wrench, and its {@code
+     * useItemOn} refuses anything that does not match what is already displayed. The event fires
+     * first, so the click is ours to take.
      */
     @SubscribeEvent
     public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
-        if (!(event.getLevel().getBlockEntity(event.getPos()) instanceof DepotBlockEntity depot)) {
+        if (!(event.getLevel().getBlockEntity(event.getPos()) instanceof PlacardBlockEntity placard)) {
             return;
         }
         if (!event.getItemStack().is(CEItems.ENIGMA_WRENCH.get())) {
             return;
         }
-        if (!depot.getHeldItem().is(AllItems.EMPTY_SCHEMATIC.get())) {
+        if (!placard.getHeldItem().is(AllItems.EMPTY_SCHEMATIC.get())) {
             return;
         }
 
@@ -65,31 +70,26 @@ public final class BlueprintBlessing {
         if (event.getLevel().isClientSide()) {
             return;
         }
-        bless(depot);
+        bless(placard);
     }
 
     /**
-     * Writes the whole sheet lying on the depot - the sheet is on display, so the pile on it is the
-     * pile that gets written, count and all.
+     * Writes the sheet in the placard. One sheet, because a placard holds one item - there is no
+     * pile to keep track of.
      *
-     * <p>{@code notifyUpdate} is what puts the page in front of the player: the held item goes out
-     * in every block entity packet, so one update is enough and the depot's own renderer picks it up.
+     * <p>{@code PlacardBlockEntity.setHeldItem} sends the block entity update itself, so the page
+     * appears in the case without this class owning a packet.
      *
      * @return whether anything was written
      */
-    public static boolean bless(DepotBlockEntity depot) {
-        ItemStack blanks = depot.getHeldItem();
-        if (!blanks.is(AllItems.EMPTY_SCHEMATIC.get())) {
+    public static boolean bless(PlacardBlockEntity placard) {
+        if (!placard.getHeldItem().is(AllItems.EMPTY_SCHEMATIC.get())) {
             return false;
         }
 
-        ItemStack written = EnigmaSchematic.blueprintStack();
-        written.setCount(blanks.getCount());
-        depot.setHeldItem(written);
-        depot.notifyUpdate();
-
-        depot.getLevel().playSound(null, depot.getBlockPos(), SoundEvents.UI_CARTOGRAPHY_TABLE_TAKE_RESULT,
-                SoundSource.PLAYERS, 1.0F, 1.0F);
+        placard.setHeldItem(EnigmaSchematic.blueprintStack());
+        placard.getLevel().playSound(null, placard.getBlockPos(),
+                SoundEvents.UI_CARTOGRAPHY_TABLE_TAKE_RESULT, SoundSource.PLAYERS, 1.0F, 1.0F);
         return true;
     }
 
