@@ -1,8 +1,10 @@
 package com.createenigma.content;
 
+import com.createenigma.registry.CEBlocks;
 import com.createenigma.structure.EnigmaStructure;
 import com.createenigma.structure.EnigmaStructure.Generation;
 import com.createenigma.structure.EnigmaValidator;
+import com.simibubi.create.AllSoundEvents;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -15,8 +17,10 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
@@ -30,6 +34,11 @@ import org.jetbrains.annotations.Nullable;
  * <p>Right-click a chest and it reads the machine being built around it. This is the mod's only
  * teacher: the ponder shows the finished machine, made of Creative Motors that cannot be obtained
  * in survival, so the wrench is where a player finds out what they are actually meant to do.
+ *
+ * <p>The same wrench is the only way to talk to an assembled core: right click asks it what it
+ * looks like, sneaking right click takes it apart into the chest it replaced. Both live here rather
+ * than on the block, because vanilla will not let a held item's sneak-click reach a block (see
+ * {@link #onItemUseFirst}).
  *
  * <p><b>The chest still opens normally with anything else in hand.</b> No cancellation is needed
  * for that: a chest answers {@code useWithoutItem}, not {@code useItemOn}, so with a wrench held
@@ -63,11 +72,36 @@ public class EnigmaWrenchItem extends Item {
         Level level = context.getLevel();
         BlockPos pos = context.getClickedPos();
 
-        if (!level.getBlockState(pos).is(Blocks.CHEST)) {
-            return InteractionResult.PASS;
-        }
         Player player = context.getPlayer();
         if (player == null) {
+            return InteractionResult.PASS;
+        }
+
+        BlockState clicked = level.getBlockState(pos);
+
+        // The core has to be handled here rather than on the block, and this is the reason the
+        // wrench is an item at all: while sneaking with something in hand, vanilla skips the
+        // block's own use hook entirely. ServerPlayerGameMode.useItemOn computes
+        //   flag  = !mainHand.isEmpty() || !offhand.isEmpty()
+        //   flag1 = isSecondaryUseActive() && flag
+        //           && !(mainHand.doesSneakBypassUse(...) && offhand.doesSneakBypassUse(...))
+        // and only asks the block `useItemOn` when flag1 is false - so "sneak + wrench on the core"
+        // never reached EnigmaCoreBlock and did nothing. An item that runs first has no such rule.
+        if (clicked.is(CEBlocks.ENIGMA_CORE.get())) {
+            if (level.isClientSide) {
+                // The server answers and sends the message, or removes the block; the client
+                // only swings.
+                return InteractionResult.SUCCESS;
+            }
+            if (player.isShiftKeyDown()) {
+                dismantle(level, pos, player);
+            } else if (level.getBlockEntity(pos) instanceof EnigmaCoreBlockEntity core) {
+                core.report(player);
+            }
+            return InteractionResult.SUCCESS;
+        }
+
+        if (!clicked.is(Blocks.CHEST)) {
             return InteractionResult.PASS;
         }
 
@@ -127,8 +161,21 @@ public class EnigmaWrenchItem extends Item {
         return ChestBlock.getContainer(chest, state, level, pos, true);
     }
 
-    /** The machine is complete but the offering is not acceptable. Nothing changes in the world. */
-    private static void refuse(Level level, BlockPos pos, Player player, String key, float pitch) {
+    /**
+     * Takes the core apart and puts a chest in the player's inventory.
+     *
+     * <p>The block is cleared with {@code setBlock} rather than broken with drops on purpose: the
+     * core's loot table already says a chest, and letting the block drop its own loot here as well
+     * would hand out two. A chest is what this position held before the machine was assembled,
+     * never the core itself - no path in the game puts one in a bag.
+     */
+    private static void dismantle(Level level, BlockPos pos, Player player) {
+        level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+        player.getInventory().placeItemBackInInventory(new ItemStack(Items.CHEST));
+        AllSoundEvents.WRENCH_REMOVE.playOnServer(level, pos);
+    }
+
+    /** The machine is complete but the offering is not acceptable. Nothing changes in the world. */    private static void refuse(Level level, BlockPos pos, Player player, String key, float pitch) {
         player.displayClientMessage(Component.translatable(key).withStyle(ChatFormatting.GRAY), false);
         level.playSound(null, pos, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.5F, pitch);
     }
