@@ -4,6 +4,7 @@ import com.simibubi.create.content.processing.burner.BlazeBurnerBlock;
 import com.simibubi.create.content.processing.burner.BlazeBurnerBlock.HeatLevel;
 import com.simibubi.create.content.processing.burner.BlazeBurnerBlockEntity;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
@@ -103,8 +104,9 @@ public class ExtinguishedCakeItem extends Item {
         tooltip.add(Component.empty());
         tooltip.add(com.createenigma.client.SummaryTooltips.summary(
                 Component.translatable(TOOLTIP_STORY)));
-        tooltip.add(com.createenigma.client.SummaryTooltips.summary(
-                Component.translatable(TOOLTIP_HINT)));
+        // The hint is a footnote rather than part of the description, so it stays out of the summary
+        // palette: gray sets it below the story without adding another colour to the tooltip.
+        tooltip.add(Component.translatable(TOOLTIP_HINT).withStyle(ChatFormatting.GRAY));
     }
 
     /**
