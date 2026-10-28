@@ -24,6 +24,21 @@ import net.minecraft.server.level.ServerPlayer;
  * player has no idea the tab exists; the moment it does, the tab and its entry appear together.
  * The reveal is the reward.
  *
+ * <h2>None of these files is {@code hidden}</h2>
+ *
+ * <p>{@code AdvancementVisibilityEvaluator} runs on the server, once per root, from
+ * {@code PlayerAdvancements.updateTreeVisibility}. An unfinished node is visible when its nearest
+ * decisive ancestor within {@code VISIBILITY_DEPTH = 2} has been completed; a {@code "hidden": true}
+ * display short-circuits that to invisible, so a hidden node is never seen before it is earned.
+ *
+ * <p>Hidden would leave a player who has just watched their first ponder with no idea what to do
+ * next, and the tab is the only place this mod explains itself. So the files declare no
+ * {@code hidden}: each earned node shows what it leads to. The depth being 2 rather than 1 does mean
+ * two steps are previewed at once, which cannot be narrowed without a mixin on the evaluator.
+ *
+ * <p>The root keeps its own selection criterion: it becomes visible only once something beneath it
+ * has been completed, so the tab still stays secret until {@link #grantPonderWatched} fires.
+ *
  * <h2>Why the three form a chain rather than three siblings</h2>
  *
  * <p>{@code root -> ponder_watched -> enigma}. The chain is not about unlock order - advancements

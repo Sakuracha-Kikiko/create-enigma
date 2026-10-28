@@ -16,7 +16,6 @@
       "translate": "advancement.create_enigma.snuffed_out.description"
     },
     "frame": "task",
-    "hidden": true,
     "icon": {
       "count": 1,
       "id": "create_enigma:extinguished_cake"

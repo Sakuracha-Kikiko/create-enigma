@@ -699,6 +699,43 @@ public class EnigmaGameTests {
         helper.succeed();
     }
 
+    /**
+     * No advancement is hidden, so the tab can teach.
+     *
+     * <p>{@code AdvancementVisibilityEvaluator} previews an unfinished node only when it is not
+     * hidden, and only within two levels of a completed one. A {@code "hidden": true} display turns
+     * that into "invisible until earned", which for a mod whose whole guidance lives in this tab
+     * means a player who just watched the first ponder has nothing to go on.
+     *
+     * <p>This is a one-line-per-file mistake with no symptom other than "the tab looks empty", so it
+     * is worth a test: every file must carry a display and none of them may be hidden.
+     */
+    @GameTest(template = TEMPLATE)
+    public static void noAdvancementIsHidden(GameTestHelper helper) {
+        var manager = helper.getLevel().getServer().getAdvancements();
+        ResourceLocation[] all = {
+                EnigmaAdvancements.ROOT,
+                EnigmaAdvancements.PONDER_WATCHED,
+                EnigmaAdvancements.ENIGMA,
+                EnigmaAdvancements.GODS_GLANCE,
+                EnigmaAdvancements.MYSTIC_AGE,
+                EnigmaAdvancements.MYSTIC_GRACE,
+                EnigmaAdvancements.SNUFFED_OUT,
+                EnigmaAdvancements.SHAPE_REMEMBERED,
+        };
+
+        for (ResourceLocation id : all) {
+            AdvancementHolder holder = manager.get(id);
+            helper.assertTrue(holder != null, "advancement " + id + " did not load");
+            var display = holder.value().display();
+            helper.assertTrue(display.isPresent(), id + " has no display, so it can never be shown");
+            helper.assertTrue(!display.get().isHidden(),
+                    id + " is hidden, so the player never sees it coming and has nothing to aim at");
+        }
+
+        helper.succeed();
+    }
+
     private static void assertParent(GameTestHelper helper, AdvancementHolder child, ResourceLocation parent) {
         helper.assertTrue(child.value().parent().isPresent()
                         && child.value().parent().get().equals(parent),

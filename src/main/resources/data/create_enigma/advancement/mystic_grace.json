@@ -18,7 +18,6 @@
       "translate": "advancement.create_enigma.mystic_grace.description"
     },
     "frame": "task",
-    "hidden": true,
     "icon": {
       "count": 1,
       "id": "create_enigma:creative_hand_crank"
