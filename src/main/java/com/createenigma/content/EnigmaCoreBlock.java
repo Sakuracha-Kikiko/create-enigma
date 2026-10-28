@@ -97,30 +97,35 @@ public class EnigmaCoreBlock extends Block implements EntityBlock {
     }
 
     /**
-     * The core answers exactly one interaction: a wrench, held while sneaking, takes it apart.
+     * The wrench is the core's only interface, and it reads the same in both hands: a plain right
+     * click asks the machine what it looks like, a sneaking right click takes it apart.
      *
-     * <p>Same gesture and same sound as Create's wrench removing a kinetic component, because that
-     * is the gesture players already know. What comes back is a chest, which is what this position
-     * held before the machine was assembled - never the core itself. That is the whole point: the
-     * core is not a survival item, so there is no path in the game that puts one in a bag.
+     * <p>That split is Create's own wrench - right click turns a component, sneaking right click
+     * removes it - so the gesture is already in the player's hands by the time they meet this
+     * block. What the dismantle gives back is a chest, which is what this position held before the
+     * machine was assembled, never the core itself: no path in the game puts one in a bag.
      *
-     * <p>Everything else passes through untouched: without a wrench, or without sneaking, right
-     * click does nothing at all. The core stopped reporting the machine's state when this was added
-     * - that readout belongs to the chest, which is the block the player places and can always get
-     * back.
+     * <p>Anything other than the wrench passes straight through, so building against the core still
+     * works. Empty-handed right click does nothing - the readout is something the tool does, not
+     * something the block says to whoever walks past it.
      */
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level,
                                               BlockPos pos, Player player, InteractionHand hand,
                                               BlockHitResult hitResult) {
-        if (!player.isShiftKeyDown() || !stack.is(CEItems.ENIGMA_WRENCH.get())) {
+        if (!stack.is(CEItems.ENIGMA_WRENCH.get())) {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
         if (level.isClientSide) {
-            // The server removes the block and hands back the chest; the client only swings.
+            // The server answers and sends the message, or removes the block; the client only swings.
             return ItemInteractionResult.SUCCESS;
         }
-        dismantle(level, pos, player);
+
+        if (player.isShiftKeyDown()) {
+            dismantle(level, pos, player);
+        } else if (level.getBlockEntity(pos) instanceof EnigmaCoreBlockEntity core) {
+            core.report(player);
+        }
         return ItemInteractionResult.SUCCESS;
     }
 

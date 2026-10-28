@@ -7,8 +7,10 @@ import com.createenigma.structure.EnigmaValidator;
 import javax.annotation.Nullable;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -147,6 +149,47 @@ public class EnigmaCoreBlockEntity extends BlockEntity {
         for (ServerPlayer player : serverLevel.getEntitiesOfClass(ServerPlayer.class,
                 new AABB(worldPosition).inflate(16.0D))) {
             EnigmaAdvancements.grantMysticAge(player);
+        }
+    }
+
+    /**
+     * Tells the player what the machine currently looks like, and where it first disagrees.
+     *
+     * <p>Reached only through the wrench - the block passes every other item straight through - so
+     * this is the tool talking, not the block. The chest carries the same conversation before the
+     * machine assembles; once the core is standing there is no chest left to ask, which is why this
+     * readout has to exist on the core at all.
+     *
+     * <p>It reports the <em>assembled</em> machine, six motors, which is a stricter question than
+     * the chest's: the chest asks whether the shell and the motors are there, the core asks whether
+     * the shell, the motors and their own state still agree. That is what makes it useful after
+     * something has been knocked out of a finished machine.
+     */
+    public void report(Player player) {
+        EnigmaValidator.Result result = check();
+
+        if (result == null) {
+            player.displayClientMessage(Component.translatable("create_enigma.enigma_core.no_template"), false);
+            return;
+        }
+
+        switch (result.status()) {
+            case FORMED -> {
+                player.displayClientMessage(
+                        Component.translatable("create_enigma.enigma_core.formed"), false);
+                if (layer != null) {
+                    player.displayClientMessage(
+                            Component.translatable("create_enigma.enigma_core.layer."
+                                    + layer.name().toLowerCase(java.util.Locale.ROOT)), false);
+                }
+            }
+            case UNKNOWN -> player.displayClientMessage(
+                    Component.translatable("create_enigma.enigma_core.unknown"), false);
+            case UNFORMED -> {
+                BlockPos pos = result.failingPos();
+                player.displayClientMessage(Component.translatable("create_enigma.enigma_core.unformed",
+                        pos.getX(), pos.getY(), pos.getZ(), result.detail()), false);
+            }
         }
     }
 }
