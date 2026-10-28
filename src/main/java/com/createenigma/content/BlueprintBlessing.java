@@ -6,10 +6,12 @@ import com.createenigma.structure.EnigmaSchematic;
 import com.simibubi.create.AllItems;
 import com.simibubi.create.content.decoration.placard.PlacardBlockEntity;
 
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -70,7 +72,22 @@ public final class BlueprintBlessing {
         if (event.getLevel().isClientSide()) {
             return;
         }
-        bless(placard);
+        if (bless(placard)) {
+            award(event.getEntity());
+        }
+    }
+
+    /**
+     * The 主将从现 advancement, for the player who did the writing.
+     *
+     * <p>Awarded here rather than from inside {@link #bless} because the ritual is a player gesture
+     * and the blessing itself is a pure function of the block entity - keeping the award out of it
+     * leaves that function callable from a test without a player.
+     */
+    private static void award(Player player) {
+        if (player instanceof ServerPlayer serverPlayer) {
+            EnigmaAdvancements.grantShapeRemembered(serverPlayer);
+        }
     }
 
     /**
@@ -111,7 +128,9 @@ public final class BlueprintBlessing {
         if (event.getLevel().isClientSide()) {
             return;
         }
-        bless(dropped);
+        if (bless(dropped)) {
+            award(event.getEntity());
+        }
     }
 
     /**

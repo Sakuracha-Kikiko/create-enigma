@@ -1,0 +1,29 @@
+{
+  "parent": "create_enigma:gods_glance",
+  "criteria": {
+    "impossible": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "announce_to_chat": true,
+    "description": {
+      "translate": "advancement.create_enigma.shape_remembered.description"
+    },
+    "frame": "task",
+    "hidden": true,
+    "icon": {
+      "count": 1,
+      "id": "create:placard"
+    },
+    "title": {
+      "translate": "advancement.create_enigma.shape_remembered.title"
+    }
+  },
+  "requirements": [
+    [
+      "impossible"
+    ]
+  ],
+  "sends_telemetry_event": true
+}

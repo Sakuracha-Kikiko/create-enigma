@@ -1,0 +1,34 @@
+{
+  "parent": "create_enigma:gods_glance",
+  "criteria": {
+    "ate": {
+      "trigger": "minecraft:consume_item",
+      "conditions": {
+        "item": {
+          "items": "create_enigma:extinguished_cake"
+        }
+      }
+    }
+  },
+  "display": {
+    "announce_to_chat": true,
+    "description": {
+      "translate": "advancement.create_enigma.snuffed_out.description"
+    },
+    "frame": "task",
+    "hidden": true,
+    "icon": {
+      "count": 1,
+      "id": "create_enigma:extinguished_cake"
+    },
+    "title": {
+      "translate": "advancement.create_enigma.snuffed_out.title"
+    }
+  },
+  "requirements": [
+    [
+      "ate"
+    ]
+  ],
+  "sends_telemetry_event": true
+}

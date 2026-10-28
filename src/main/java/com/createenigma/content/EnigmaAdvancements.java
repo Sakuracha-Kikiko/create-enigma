@@ -83,6 +83,29 @@ public final class EnigmaAdvancements {
             ResourceLocation.fromNamespaceAndPath(CreateEnigma.MOD_ID, "mystic_grace");
 
     /**
+     * 鱼鱼熄灭 - eating the extinguished cake.
+     *
+     * <p>Hangs under {@link #GODS_GLANCE}, alongside {@code mystic_age}'s subtree. Trigger-driven:
+     * {@code minecraft:consume_item} with an item predicate, fired by {@code LivingEntity.eat} for
+     * any food. The cake is a plain {@code Item} with food properties, so eating it needs no code
+     * and neither does this.
+     */
+    public static final ResourceLocation SNUFFED_OUT =
+            ResourceLocation.fromNamespaceAndPath(CreateEnigma.MOD_ID, "snuffed_out");
+
+    /**
+     * 主将从现 - writing a blank blueprint into the Enigma blueprint.
+     *
+     * <p>Hangs under {@link #GODS_GLANCE}. This one <b>is</b> awarded from code, because the ritual
+     * has no vanilla trigger to hang on: the wrench takes the right click from
+     * {@code PlayerInteractEvent.RightClickBlock} before the placard is ever asked, so no
+     * {@code item_used_on_block} fires. {@code BlueprintBlessing} is the only place a blank sheet
+     * becomes a written one, so it is the only place that awards this.
+     */
+    public static final ResourceLocation SHAPE_REMEMBERED =
+            ResourceLocation.fromNamespaceAndPath(CreateEnigma.MOD_ID, "shape_remembered");
+
+    /**
      * The criterion key every advancement file declares.
      *
      * <p>Public so the GameTest can assert the files really declare it. {@code award()} returns
@@ -131,6 +154,25 @@ public final class EnigmaAdvancements {
         award(player, PONDER_WATCHED);
         award(player, ENIGMA);
         return award(player, MYSTIC_AGE);
+    }
+
+    /**
+     * Awards the tab and the two steps above {@code shape_remembered}, for a blueprint just written.
+     *
+     * <p>A player can receive the wrench from the creative inventory instead of crafting it, in which
+     * case {@code gods_glance} was never granted and this node hangs off nothing. That is fine -
+     * an unawarded parent still renders - but the tab itself depends on the root, so the chain above
+     * is granted here for the same reason {@link #grantMysticAge} does it.
+     *
+     * <p>{@code gods_glance} is deliberately not granted: it is trigger-driven and awarding it from
+     * code would hand it out for something the player did not do.
+     *
+     * @return true when this call was the one that granted {@code shape_remembered}
+     */
+    public static boolean grantShapeRemembered(ServerPlayer player) {
+        award(player, PONDER_WATCHED);
+        award(player, ENIGMA);
+        return award(player, SHAPE_REMEMBERED);
     }
 
     private static boolean award(ServerPlayer player, ResourceLocation id) {

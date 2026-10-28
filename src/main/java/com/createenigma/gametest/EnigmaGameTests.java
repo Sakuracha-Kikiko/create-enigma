@@ -656,6 +656,8 @@ public class EnigmaGameTests {
         AdvancementHolder enigma = server.getAdvancements().get(EnigmaAdvancements.ENIGMA);
         AdvancementHolder glance = server.getAdvancements().get(EnigmaAdvancements.GODS_GLANCE);
         AdvancementHolder mysticAge = server.getAdvancements().get(EnigmaAdvancements.MYSTIC_AGE);
+        AdvancementHolder snuffed = server.getAdvancements().get(EnigmaAdvancements.SNUFFED_OUT);
+        AdvancementHolder shape = server.getAdvancements().get(EnigmaAdvancements.SHAPE_REMEMBERED);
         helper.assertTrue(root != null, "advancement " + EnigmaAdvancements.ROOT + " did not load");
         helper.assertTrue(watched != null,
                 "advancement " + EnigmaAdvancements.PONDER_WATCHED + " did not load");
@@ -664,6 +666,10 @@ public class EnigmaGameTests {
                 "advancement " + EnigmaAdvancements.GODS_GLANCE + " did not load");
         helper.assertTrue(mysticAge != null,
                 "advancement " + EnigmaAdvancements.MYSTIC_AGE + " did not load");
+        helper.assertTrue(snuffed != null,
+                "advancement " + EnigmaAdvancements.SNUFFED_OUT + " did not load");
+        helper.assertTrue(shape != null,
+                "advancement " + EnigmaAdvancements.SHAPE_REMEMBERED + " did not load");
         helper.assertTrue(root.value().isRoot(), EnigmaAdvancements.ROOT + " is not a root advancement");
 
         // The chain is what fixes the display order. Siblings under one parent are laid out in the
@@ -678,10 +684,13 @@ public class EnigmaGameTests {
         assertParent(helper, enigma, EnigmaAdvancements.PONDER_WATCHED);
         assertParent(helper, glance, EnigmaAdvancements.ENIGMA);
         assertParent(helper, mysticAge, EnigmaAdvancements.GODS_GLANCE);
+        assertParent(helper, snuffed, EnigmaAdvancements.GODS_GLANCE);
+        assertParent(helper, shape, EnigmaAdvancements.GODS_GLANCE);
 
         // award() returns false for an unknown criterion rather than throwing, so this is the
         // assertion that stands between a typo and a feature that silently never appears.
-        for (AdvancementHolder holder : new AdvancementHolder[] {root, watched, enigma, mysticAge}) {
+        // snuffed_out is left out on purpose: it carries a real trigger, so it declares "ate".
+        for (AdvancementHolder holder : new AdvancementHolder[] {root, watched, enigma, mysticAge, shape}) {
             helper.assertTrue(holder.value().criteria().containsKey(EnigmaAdvancements.CRITERION),
                     "an advancement does not declare the criterion '" + EnigmaAdvancements.CRITERION
                             + "'; it declares " + holder.value().criteria().keySet());
@@ -729,6 +738,17 @@ public class EnigmaGameTests {
                 grace.value().criteria().get("obtained").trigger()
                         instanceof net.minecraft.advancements.critereon.InventoryChangeTrigger,
                 "mystic_grace does not use inventory_changed; it would never fire on obtaining the crank");
+
+        AdvancementHolder snuffed = manager.get(EnigmaAdvancements.SNUFFED_OUT);
+        helper.assertTrue(snuffed != null,
+                "advancement " + EnigmaAdvancements.SNUFFED_OUT + " did not load");
+        assertParent(helper, snuffed, EnigmaAdvancements.GODS_GLANCE);
+        helper.assertTrue(snuffed.value().criteria().containsKey("ate"),
+                "snuffed_out does not declare the 'ate' criterion");
+        helper.assertTrue(
+                snuffed.value().criteria().get("ate").trigger()
+                        instanceof net.minecraft.advancements.critereon.ConsumeItemTrigger,
+                "snuffed_out does not use consume_item; it would never fire on eating the cake");
 
         helper.succeed();
     }
