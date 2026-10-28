@@ -4,17 +4,27 @@ import com.simibubi.create.content.processing.burner.BlazeBurnerBlock;
 import com.simibubi.create.content.processing.burner.BlazeBurnerBlock.HeatLevel;
 import com.simibubi.create.content.processing.burner.BlazeBurnerBlockEntity;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
+import net.neoforged.fml.loading.FMLEnvironment;
+
+import java.util.List;
 
 /**
  * 熄灭蛋糕 / Extinguished Cake: used on a lit blaze burner, it puts the burner out.
@@ -40,6 +50,23 @@ public class ExtinguishedCakeItem extends Item {
     private static final String FUEL_LEVEL = "fuelLevel";
     private static final String BURN_TIME_REMAINING = "burnTimeRemaining";
 
+    private static final String TOOLTIP_STORY = "item.create_enigma.extinguished_cake.tooltip.story";
+    private static final String TOOLTIP_HINT = "item.create_enigma.extinguished_cake.tooltip.hint";
+
+    /**
+     * Eaten, it restores 5 hunger and 12 saturation (nutrition 5, saturation modifier 1.2, and the
+     * game doubles that: 5 * 1.2 * 2 = 12) and grants ten seconds of fire resistance.
+     *
+     * <p>For scale, a golden carrot is 6 and 14.4 - so this sits just under the best food in the
+     * game, which is what a cake baked in a blaze burner had better be. Fire resistance is the
+     * point of it: the cake had its fire put out, and eating it lends you the same.
+     */
+    public static final FoodProperties FOOD = new FoodProperties.Builder()
+            .nutrition(5)
+            .saturationModifier(1.2F)
+            .effect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 200, 0), 1.0F)
+            .build();
+
     public ExtinguishedCakeItem(Properties properties) {
         super(properties);
     }
@@ -60,6 +87,21 @@ public class ExtinguishedCakeItem extends Item {
                 context.getItemInHand().shrink(1);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
+    }
+
+    @Override
+    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip,
+            TooltipFlag flag) {
+        if (!shiftDown())
+            return;
+        tooltip.add(Component.translatable(TOOLTIP_STORY).withStyle(ChatFormatting.GOLD));
+        tooltip.add(Component.translatable(TOOLTIP_HINT).withStyle(ChatFormatting.GRAY));
+    }
+
+    /** Shift, asked of the client only: an item is never hovered on a dedicated server. */
+    private static boolean shiftDown() {
+        return FMLEnvironment.dist.isClient()
+                && net.minecraft.client.gui.screens.Screen.hasShiftDown();
     }
 
     /**

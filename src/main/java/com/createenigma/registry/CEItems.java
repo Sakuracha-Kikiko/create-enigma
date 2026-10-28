@@ -44,14 +44,17 @@ public class CEItems {
      * <p>Create's blaze cake is the base plus 250 mB of lava; this is that recipe with water, so the
      * two sit next to each other in JEI and differ by one ingredient.
      *
-     * <p>It is not food. A blaze cake is fuel rather than a meal, and this one has had the fire put
-     * out - which is what it does: used on a burner that is heating, it puts that burner out.
+     * <p>It is not a plain meal, though it is food: eating it restores 5 hunger and 12 saturation
+     * and grants ten seconds of fire resistance. See {@link ExtinguishedCakeItem#FOOD}.
      *
-     * <p>Its texture is Create's blaze cake, referenced by name: a placeholder until something of its
-     * own is drawn.
+     * <p>Its texture is Create's blaze cake recoloured to water hues - the same sprite, the same
+     * shading, with every warm hue remapped onto blue and cyan, so the two items read as the same
+     * cake with the fire taken out of it.
      */
     public static final ItemEntry<ExtinguishedCakeItem> EXTINGUISHED_CAKE =
-            CreateEnigma.registrate().item("extinguished_cake", ExtinguishedCakeItem::new).register();
+            CreateEnigma.registrate().item("extinguished_cake", ExtinguishedCakeItem::new)
+                    .properties(p -> p.food(ExtinguishedCakeItem.FOOD))
+                    .register();
 
     public static void register() {
         // Class loading performs the registration.

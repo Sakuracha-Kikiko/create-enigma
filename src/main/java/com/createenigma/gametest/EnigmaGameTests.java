@@ -1366,6 +1366,28 @@ public class EnigmaGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void extinguishedCakeIsFood(GameTestHelper helper) {
+        ItemStack cake = new ItemStack(CEItems.EXTINGUISHED_CAKE.get());
+        net.minecraft.world.food.FoodProperties food = cake.get(DataComponents.FOOD);
+        helper.assertTrue(food != null, "the extinguished cake is not food");
+
+        // One point five from the builder's saturation modifier is already doubled and multiplied by
+        // the nutrition when the properties are built, so the record reports the total a full-hunger
+        // player receives. Twelve is that total: five hunger times 1.2, doubled.
+        helper.assertTrue(food.nutrition() == 5,
+                "it restores " + food.nutrition() + " hunger instead of 5");
+        helper.assertTrue(Math.abs(food.saturation() - 12.0F) < 1.0E-4F,
+                "it restores " + food.saturation() + " saturation instead of 12");
+
+        boolean fireResistance = food.effects().stream().anyMatch(possible ->
+                possible.effect().getEffect().value() == net.minecraft.world.effect.MobEffects.FIRE_RESISTANCE.value()
+                        && possible.effect().getDuration() == 200);
+        helper.assertTrue(fireResistance,
+                "it grants no ten seconds of fire resistance: " + food.effects());
+        helper.succeed();
+    }
+
     /** Advances a property to its next possible value, whatever its type. */
     private static BlockState cycle(BlockState state, String propertyName) {
         Property<?> property = state.getBlock().getStateDefinition().getProperty(propertyName);
