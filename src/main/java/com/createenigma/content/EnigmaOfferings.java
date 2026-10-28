@@ -1,6 +1,12 @@
 package com.createenigma.content;
 
+import java.util.EnumSet;
+import java.util.Set;
+
+import javax.annotation.Nullable;
+
 import com.createenigma.registry.CEItems;
+import com.simibubi.create.AllBlocks;
 
 import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
@@ -10,18 +16,23 @@ import net.minecraft.world.item.ItemStack;
  *
  * <h2>The rule</h2>
  *
- * <p>The chest must contain <b>nothing but</b> the Hand of God, in any quantity. That single rule
- * covers the three cases the wrench has to distinguish, and keeping it as one rule rather than three
- * is what makes them impossible to disagree:
+ * <p>The chest must contain <b>one of each</b> of the three things the machine values - a flywheel,
+ * an extinguished cake and a Hand of God - and <b>nothing but</b> those three. Extra copies are
+ * allowed and are consumed along with the rest: the machine is not counting, it is accepting.
+ *
+ * <p>Spelled as one rule rather than three checks, so the three verdicts the wrench has to tell
+ * apart cannot disagree with each other:
  *
  * <ul>
  *   <li>nothing at all - no offering has been made;</li>
- *   <li>anything else, with or without a Hand - the offering is spoiled;</li>
- *   <li>Hands only, one or more - the offering is accepted and the Hands are consumed.</li>
+ *   <li>anything else, or only part of the set - the offering is spoiled, whether or not the
+ *       missing pieces are "almost there";</li>
+ *   <li>all three kinds, in any quantity - the offering is accepted and the chest is emptied.</li>
  * </ul>
  *
- * <p>The quantity is deliberately not fixed yet. Whatever number sits in the chest is what is taken;
- * if it should be a specific count, that check belongs in {@link #judge(Container)} and nowhere else.
+ * <p>A partial set is deliberately {@link Verdict#IMPURE} and not {@link Verdict#EMPTY}. A player who
+ * has put in two of the three deserves to be told the offering is wrong, not that they have offered
+ * nothing.
  *
  * <h2>Why a container and not a chest</h2>
  *
@@ -32,51 +43,79 @@ import net.minecraft.world.item.ItemStack;
  */
 public final class EnigmaOfferings {
 
+    /** The three things that count as part of an offering. */
+    private enum Kind {
+        FLYWHEEL,
+        CAKE,
+        HAND
+    }
+
     /** What the chest in the machine's anchor position currently amounts to. */
     public enum Verdict {
         /** Nothing in it. Something has to be offered. */
         EMPTY,
-        /** Something that is not the Hand of God, possibly alongside one. */
+        /** Something that is not an offering, or an offering with a piece still missing. */
         IMPURE,
-        /** Nothing but the Hand of God, at least one. */
+        /** One of each, and nothing else. */
         ACCEPTABLE
     }
 
     private EnigmaOfferings() {}
 
+    @Nullable
+    private static Kind kindOf(ItemStack stack) {
+        if (stack.is(AllBlocks.FLYWHEEL.get().asItem())) {
+            return Kind.FLYWHEEL;
+        }
+        if (stack.is(CEItems.EXTINGUISHED_CAKE.get())) {
+            return Kind.CAKE;
+        }
+        if (stack.is(CEItems.HAND_OF_GOD.get())) {
+            return Kind.HAND;
+        }
+        return null;
+    }
+
     public static Verdict judge(Container container) {
-        int hands = 0;
-        boolean other = false;
+        Set<Kind> present = EnumSet.noneOf(Kind.class);
+        boolean anything = false;
+        boolean foreign = false;
 
         for (int slot = 0; slot < container.getContainerSize(); slot++) {
             ItemStack stack = container.getItem(slot);
             if (stack.isEmpty()) {
                 continue;
             }
-            if (stack.is(CEItems.HAND_OF_GOD.get())) {
-                hands += stack.getCount();
+            anything = true;
+
+            Kind kind = kindOf(stack);
+            if (kind == null) {
+                foreign = true;
             } else {
-                other = true;
+                present.add(kind);
             }
         }
 
-        if (other) {
+        if (!anything) {
+            return Verdict.EMPTY;
+        }
+        if (foreign || present.size() < Kind.values().length) {
             return Verdict.IMPURE;
         }
-        return hands == 0 ? Verdict.EMPTY : Verdict.ACCEPTABLE;
+        return Verdict.ACCEPTABLE;
     }
 
     /**
      * Empties the chest.
      *
-     * <p>Only ever called after {@link Verdict#ACCEPTABLE}, which means every stack in it is a Hand
-     * of God. Written as "clear every slot" rather than "subtract N of the Hand" on purpose: with the
-     * quantity still undecided, taking everything is the behaviour that cannot drift from the rule
-     * above.
+     * <p>Only ever called after {@link Verdict#ACCEPTABLE}, which means every stack in it is part of
+     * the offering. Written as "clear every offering slot" rather than "subtract one of each" on
+     * purpose: the rule accepts extras, so the accepted surplus is the machine's, not the player's -
+     * taking one of each and leaving the rest would quietly change what was agreed to.
      */
     public static void consume(Container container) {
         for (int slot = 0; slot < container.getContainerSize(); slot++) {
-            if (container.getItem(slot).is(CEItems.HAND_OF_GOD.get())) {
+            if (kindOf(container.getItem(slot)) != null) {
                 container.setItem(slot, ItemStack.EMPTY);
             }
         }

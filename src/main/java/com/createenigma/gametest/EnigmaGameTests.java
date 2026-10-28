@@ -817,16 +817,19 @@ public class EnigmaGameTests {
     }
 
     /**
-     * The offering rule: a chest holding nothing but the Hand of God, in any quantity.
+     * The offering rule: one flywheel, one extinguished cake and one Hand of God, and nothing else.
      *
-     * <p>Three verdicts, and each of them has a case that a simpler rule would get wrong:
+     * <p>The cases that a looser rule would get wrong, and that this test exists for:
      *
      * <ul>
-     *   <li>a chest with dirt and no Hand is not "empty" - it is spoiled, and saying "you have not
-     *       shown enough sincerity" to a player who filled it with junk would be a lie;</li>
-     *   <li>a chest with a Hand <b>and</b> dirt is not acceptable - one item cannot be slipped past
-     *       the rule by stacking it next to the right thing;</li>
-     *   <li>several Hands are acceptable, because the quantity is not fixed yet.</li>
+     *   <li>a chest with dirt and no offering is not "empty" - it is spoiled, and saying "you have
+     *       not shown enough sincerity" to a player who filled it with junk would be a lie;</li>
+     *   <li>two of the three is <b>not</b> acceptable either, even though it is nearly right - the
+     *       machine asks for the set;</li>
+     *   <li>an offering <b>plus</b> dirt is spoiled; one item cannot be slipped past the rule by
+     *       stacking it next to the right things;</li>
+     *   <li>extras of the right things are fine and all of them are taken, because the rule accepts
+     *       rather than counts.</li>
      * </ul>
      *
      * <p>Tested on a plain {@link SimpleContainer}: the rule is a function of contents, so it needs
@@ -836,7 +839,11 @@ public class EnigmaGameTests {
      * verified in game.
      */
     @GameTest(template = TEMPLATE)
-    public static void offeringsMustBeHandsAndNothingElse(GameTestHelper helper) {
+    public static void offeringsMustBeOneOfEachAndNothingElse(GameTestHelper helper) {
+        ItemStack flywheel = new ItemStack(AllBlocks.FLYWHEEL.get().asItem());
+        ItemStack cake = new ItemStack(CEItems.EXTINGUISHED_CAKE.get());
+        ItemStack hand = new ItemStack(CEItems.HAND_OF_GOD.get());
+
         SimpleContainer empty = new SimpleContainer(27);
         helper.assertTrue(EnigmaOfferings.judge(empty) == EnigmaOfferings.Verdict.EMPTY,
                 "an empty chest is not EMPTY, it is " + EnigmaOfferings.judge(empty));
@@ -846,24 +853,37 @@ public class EnigmaGameTests {
         helper.assertTrue(EnigmaOfferings.judge(junk) == EnigmaOfferings.Verdict.IMPURE,
                 "a chest of dirt with no offering reads as " + EnigmaOfferings.judge(junk));
 
+        SimpleContainer partial = new SimpleContainer(27);
+        partial.setItem(0, flywheel.copy());
+        partial.setItem(1, cake.copy());
+        helper.assertTrue(EnigmaOfferings.judge(partial) == EnigmaOfferings.Verdict.IMPURE,
+                "two of the three offerings read as " + EnigmaOfferings.judge(partial));
+
+        SimpleContainer complete = new SimpleContainer(27);
+        complete.setItem(0, flywheel.copy());
+        complete.setItem(13, cake.copy());
+        complete.setItem(26, hand.copy());
+        helper.assertTrue(EnigmaOfferings.judge(complete) == EnigmaOfferings.Verdict.ACCEPTABLE,
+                "one of each reads as " + EnigmaOfferings.judge(complete));
+
         SimpleContainer mixed = new SimpleContainer(27);
-        mixed.setItem(0, new ItemStack(CEItems.HAND_OF_GOD.get()));
+        mixed.setItem(0, flywheel.copy());
+        mixed.setItem(1, cake.copy());
+        mixed.setItem(2, hand.copy());
         mixed.setItem(9, new ItemStack(Items.DIRT));
         helper.assertTrue(EnigmaOfferings.judge(mixed) == EnigmaOfferings.Verdict.IMPURE,
-                "a Hand next to dirt reads as " + EnigmaOfferings.judge(mixed));
+                "an offering with dirt in the chest reads as " + EnigmaOfferings.judge(mixed));
 
-        SimpleContainer hands = new SimpleContainer(27);
-        hands.setItem(3, new ItemStack(CEItems.HAND_OF_GOD.get(), 3));
-        hands.setItem(20, new ItemStack(CEItems.HAND_OF_GOD.get(), 2));
-        helper.assertTrue(EnigmaOfferings.judge(hands) == EnigmaOfferings.Verdict.ACCEPTABLE,
-                "five Hands across two slots read as " + EnigmaOfferings.judge(hands));
+        SimpleContainer surplus = new SimpleContainer(27);
+        surplus.setItem(0, new ItemStack(AllBlocks.FLYWHEEL.get().asItem(), 3));
+        surplus.setItem(1, cake.copy());
+        surplus.setItem(2, new ItemStack(CEItems.HAND_OF_GOD.get(), 2));
+        helper.assertTrue(EnigmaOfferings.judge(surplus) == EnigmaOfferings.Verdict.ACCEPTABLE,
+                "surplus of the right things reads as " + EnigmaOfferings.judge(surplus));
 
-        helper.assertTrue(hands.countItem(CEItems.HAND_OF_GOD.get()) == 5,
-                "the test container does not actually hold five Hands");
-
-        EnigmaOfferings.consume(hands);
-        helper.assertTrue(EnigmaOfferings.judge(hands) == EnigmaOfferings.Verdict.EMPTY,
-                "consume left something behind: " + EnigmaOfferings.judge(hands));
+        EnigmaOfferings.consume(surplus);
+        helper.assertTrue(EnigmaOfferings.judge(surplus) == EnigmaOfferings.Verdict.EMPTY,
+                "consume left something behind: " + EnigmaOfferings.judge(surplus));
 
         helper.succeed();
     }
