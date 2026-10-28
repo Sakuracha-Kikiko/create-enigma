@@ -1,5 +1,6 @@
 package com.createenigma.client;
 
+import net.createmod.catnip.lang.FontHelper;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -62,21 +63,30 @@ public final class SummaryTooltips {
     }
 
     /**
-     * One line of summary body, in Create's own colours: plain gray, with words wrapped in
-     * underscores picked out in white.
+     * One line of summary body, in Create's own colours: words wrapped in underscores are picked out
+     * in the palette's highlight colour, everything else in its primary colour.
      *
      * <p>{@code TooltipHelper.cutTextComponent} applies exactly this rule, after wrapping the text to
      * a fixed pixel width. The wrapping is left to the game here, which already wraps tooltips at the
      * window edge, so only the colouring is reproduced.
+     *
+     * <p>The palette is not a matter of taste: Create's own tooltips all come from one
+     * {@code ItemDescription.Modifier} registered with {@code Palette.STANDARD_CREATE}, so using
+     * anything else here - gray, white, gold - makes our lines disagree with the mod they sit next
+     * to. It is passed in rather than hardcoded so a deliberate exception stays possible.
      */
     public static Component summary(Component text) {
+        return summary(text, FontHelper.Palette.STANDARD_CREATE);
+    }
+
+    public static Component summary(Component text, FontHelper.Palette palette) {
         MutableComponent line = Component.empty();
         String[] parts = text.getString().split("_", -1);
         for (int i = 0; i < parts.length; i++) {
             if (parts[i].isEmpty())
                 continue;
             line.append(Component.literal(parts[i])
-                    .withStyle(i % 2 == 0 ? ChatFormatting.GRAY : ChatFormatting.WHITE));
+                    .setStyle(i % 2 == 0 ? palette.primary() : palette.highlight()));
         }
         return line;
     }

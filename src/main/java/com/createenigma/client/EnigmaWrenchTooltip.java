@@ -61,12 +61,15 @@ public final class EnigmaWrenchTooltip {
 
     /** "用于调试[乱码]的多功能工具…？" - the subject is the only part that is obscured. */
     private static Component summary() {
-        // Create's summary colours: gray body, picked-out words in white. The subject keeps its
-        // obfuscation, which is a style of its own and survives being a sibling component.
+        // Create's summary colours: the body in the palette's primary, the picked-out words in its
+        // highlight. The subject keeps its obfuscation, which is a style of its own and survives
+        // being a sibling component.
         return Component.translatable("create_enigma.enigma_wrench.summary",
                         Component.translatable("create_enigma.enigma_wrench.subject")
-                                .withStyle(ChatFormatting.OBFUSCATED, ChatFormatting.WHITE))
-                .withStyle(ChatFormatting.GRAY);
+                                .withStyle(ChatFormatting.OBFUSCATED)
+                                .withStyle(net.createmod.catnip.lang.FontHelper.Palette.STANDARD_CREATE
+                                        .highlight()))
+                .withStyle(net.createmod.catnip.lang.FontHelper.Palette.STANDARD_CREATE.primary());
     }
 
     /** The muttered second line: struck through, and set apart from the summary above it. */
