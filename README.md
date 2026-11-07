@@ -1,6 +1,6 @@
 <p align="center"><img src="docs/logo.png" alt="Logo" width="200"></p>
 <h1 align="center">机械动力：神秘机械</h1>
-<h2 align="center">一个神秘的机械动力附属模组</h3>
+<h3 align="center">一个神秘的机械动力附属模组</h3>
 <h4 align="center">Minecraft 1.21.1 · NeoForge 21.1.250+ · Create 6.0.10</h4>
 
 <p align="center">
