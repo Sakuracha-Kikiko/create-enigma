@@ -25,3 +25,6 @@ libs-archive/
 # OS
 Thumbs.db
 Desktop.ini
+
+# Create assets
+assets/
